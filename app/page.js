@@ -104,7 +104,7 @@ export default function ModernAirbnbListing() {
         <img 
           src={listingData.images[0]} 
           alt={listingData.title}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover object-right"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
         
