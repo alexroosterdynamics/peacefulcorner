@@ -250,15 +250,15 @@ export default function ModernAirbnbListing() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-700">{listingData.price} × 5 nights</span>
-                  <span className="font-semibold">€225</span>
+                  <span className="font-semibold text-gray-500">€225</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-700">Cleaning fee</span>
-                  <span className="font-semibold">€15</span>
+                  <span className="font-semibold text-gray-500">€15</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-700">Service fee</span>
-                  <span className="font-semibold">€20</span>
+                  <span className="font-semibold text-gray-500">€20</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between font-bold text-base">
                   <span>Total</span>
