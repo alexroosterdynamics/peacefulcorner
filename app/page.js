@@ -46,7 +46,7 @@ const listingData = {
     {
       name: "Alex",
       role: "Host",
-      image: "/hosts/alex.png",
+      image: "/hosts/Alex.png",
       bio: "Friendly and responsive, always here to help make your stay perfect."
     },
     {
@@ -214,14 +214,14 @@ export default function ModernAirbnbListing() {
               <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">Meet your hosts</h3>
               <div className="grid sm:grid-cols-2 gap-6">
                 {listingData.hosts.map((host, idx) => (
-                  <div key={idx} className="flex gap-4 p-6 bg-gray-50 rounded-2xl">
+                  <div key={idx} className="flex gap-4 p-6 bg-gray-50 rounded-2xl ">
                     <img 
                       src={host.image} 
                       alt={host.name}
                       className="w-16 h-16 rounded-full object-cover"
                     />
                     <div>
-                      <div className="font-semibold text-lg">{host.name}</div>
+                      <div className="font-semibold text-lg text-zinc-900">{host.name}</div>
                       <div className="text-sm text-gray-500 mb-2">{host.role}</div>
                       <p className="text-gray-700 text-sm">{host.bio}</p>
                     </div>
