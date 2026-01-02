@@ -1,0 +1,58 @@
+{
+  "brand": {
+    "name": "Peaceful Corner",
+    "tagline": "A calm, bright apartment in Iași",
+    "description": "A beautiful 50 sqm apartment with a balcony — perfect for slow mornings and comfy evenings."
+  },
+  "location": {
+    "city": "Iași",
+    "country": "Romania",
+    "addressLine": "Strada Sărăriei, nr 202, etaj 5",
+    "mapQuery": "Strada Sarariei 202 Iasi"
+  },
+  "details": {
+    "sizeSqm": 50,
+    "highlights": [
+      { "title": "50 sqm", "subtitle": "Spacious & airy" },
+      { "title": "Balcony", "subtitle": "Fresh air & views" },
+      { "title": "Etaj 5", "subtitle": "Quiet, elevated stay" }
+    ]
+  },
+  "gallery": {
+    "path": "/listing",
+    "count": 12,
+    "ext": "png"
+  },
+  "hosts": [
+    {
+      "name": "Andrei",
+      "role": "Host",
+      "image": "/hosts/andrei.png",
+      "bio": "Fast replies, flexible check-in when possible, happy to help with local tips."
+    },
+    {
+      "name": "Ana",
+      "role": "Co-host",
+      "image": "/hosts/ana.png",
+      "bio": "Keeps everything spotless and cozy for every stay."
+    }
+  ],
+  "availability": {
+    "initialBooked": []
+  },
+  "ui": {
+    "nav": ["Gallery", "Calendar", "Hosts", "Contact"],
+    "ctaPrimary": "Check availability",
+    "ctaSecondary": "View gallery",
+    "bookingTitle": "Availability & Booking",
+    "bookingSubtitle": "Pick your dates (unavailable days are crossed out).",
+    "contactTitle": "Contact us",
+    "contactSubtitle": "Questions or special requests? Send a message.",
+    "locationTitle": "Location",
+    "locationSubtitle": "Find us easily on the map.",
+    "slideshow": "Open slideshow",
+    "openMaps": "Open in Google Maps",
+    "bookButton": "Send booking request",
+    "contactButton": "Send message"
+  }
+}
