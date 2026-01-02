@@ -235,7 +235,7 @@ export default function ModernAirbnbListing() {
           <div className="lg:col-span-1">
             <div className="sticky top-24 bg-white border-2 border-gray-200 rounded-3xl p-6 shadow-xl">
               <div className="flex items-baseline gap-2 mb-6">
-                <span className="text-3xl font-bold">{listingData.price}</span>
+                <span className="text-3xl font-bold text-zinc-900">{listingData.price}</span>
                 <span className="text-gray-600">night</span>
               </div>
               
