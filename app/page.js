@@ -165,7 +165,7 @@ export default function ModernAirbnbListing() {
           <div className="lg:col-span-2 space-y-12">
             {/* Description */}
             <div>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-6">About this place</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold mb-6 text-zinc-900">About this place</h2>
               <p className="text-gray-700 text-lg leading-relaxed">
                 {listingData.description}
               </p>
@@ -173,7 +173,7 @@ export default function ModernAirbnbListing() {
 
             {/* Highlights */}
             <div>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-6">What this place offers</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">What this place offers</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 {listingData.highlights.map((item, idx) => {
                   const IconComponent = item.icon;
@@ -181,7 +181,7 @@ export default function ModernAirbnbListing() {
                     <div key={idx} className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl">
                       <IconComponent className="w-8 h-8 text-rose-500 flex-shrink-0" />
                       <div>
-                        <div className="font-semibold text-lg">{item.title}</div>
+                        <div className="font-semibold text-lg text-zinc-900">{item.title}</div>
                         <div className="text-gray-600">{item.subtitle}</div>
                       </div>
                     </div>
@@ -192,7 +192,7 @@ export default function ModernAirbnbListing() {
 
             {/* Amenities */}
             <div>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-6">Amenities</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">Amenities</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 {listingData.amenities.map((amenity, idx) => {
                   const IconComponent = amenity.icon;
@@ -211,7 +211,7 @@ export default function ModernAirbnbListing() {
 
             {/* Hosts */}
             <div>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-6">Meet your hosts</h3>
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">Meet your hosts</h3>
               <div className="grid sm:grid-cols-2 gap-6">
                 {listingData.hosts.map((host, idx) => (
                   <div key={idx} className="flex gap-4 p-6 bg-gray-50 rounded-2xl">
