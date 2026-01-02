@@ -1,5 +1,4 @@
 "use client"
-
 import React, { useState } from 'react';
 import { X, MapPin, Home, Users, Calendar, Star, ChevronLeft, ChevronRight, Wifi, Tv, Coffee, Wind, Snowflake, Utensils, Waves, Car, Dumbbell, ShieldCheck } from 'lucide-react';
 
@@ -51,9 +50,9 @@ const listingData = {
       bio: "Friendly and responsive, always here to help make your stay perfect."
     },
     {
-      name: "Petronela",
-      role: "Host",
-      image: "/hosts/petronela.png",
+      name: "Maria",
+      role: "Co-host",
+      image: "/hosts/maria.png",
       bio: "Local expert ready to share the best tips about Iași."
     }
   ]
@@ -81,7 +80,7 @@ export default function ModernAirbnbListing() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" style={{ WebkitTextSizeAdjust: '100%', textSizeAdjust: '100%' }}>
       {/* Glassy Navbar */}
       <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled ? 'bg-white/70 backdrop-blur-xl shadow-lg border-b border-white/20' : 'bg-transparent'
