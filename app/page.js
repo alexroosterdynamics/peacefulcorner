@@ -20,7 +20,10 @@ const listingData = {
     "/listing/4.png",
     "/listing/5.png",
     "/listing/6.png",
-    "/listing/7.png"
+    "/listing/7.png",
+    "/listing/8.png",
+    "/listing/9.png",
+    "/listing/10.png"
   ],
   highlights: [
     { icon: Home, title: "50 sqm", subtitle: "Spacious & airy" },
