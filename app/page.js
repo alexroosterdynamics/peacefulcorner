@@ -1,4 +1,5 @@
 "use client"
+import Image from "next/image";
 import React, { useState } from 'react';
 import { X, MapPin, Home, Users, Calendar, Star, ChevronLeft, ChevronRight, Wifi, Tv, Coffee, Wind, Snowflake, Utensils, Waves, Car, Dumbbell, ShieldCheck } from 'lucide-react';
 
@@ -85,14 +86,12 @@ export default function ModernAirbnbListing() {
   return (
     <div className="min-h-screen bg-white" style={{ WebkitTextSizeAdjust: '100%', textSizeAdjust: '100%' }}>
       {/* Glassy Navbar */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/70 backdrop-blur-xl shadow-lg border-b border-white/20' : 'bg-transparent'
-      }`}>
+      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/70 backdrop-blur-xl shadow-lg border-b border-white/20' : 'bg-transparent'
+        }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
-            <div className={`text-xl sm:text-2xl font-bold transition-colors ${
-              scrolled ? 'text-gray-900' : 'text-white drop-shadow-lg'
-            }`}>
+            <div className={`text-xl sm:text-2xl font-bold transition-colors ${scrolled ? 'text-gray-900' : 'text-white drop-shadow-lg'
+              }`}>
               {listingData.title}
             </div>
             <button className="bg-rose-500 hover:bg-rose-600 text-white px-4 sm:px-8 py-2 sm:py-3 rounded-full font-semibold transition-all shadow-lg">
@@ -104,13 +103,13 @@ export default function ModernAirbnbListing() {
 
       {/* Full-Screen Hero */}
       <section className="relative h-screen w-full flex items-center justify-center">
-        <img 
-          src={listingData.images[0]} 
+        <img
+          src={listingData.images[0]}
           alt={listingData.title}
           className="absolute inset-0 w-full h-full object-cover object-right"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
-        
+
         <div className="relative z-10 text-white text-center px-6 sm:px-12 max-w-4xl mx-auto">
           <div className="flex items-center justify-center gap-2 mb-4">
             <MapPin className="w-5 h-5" />
@@ -142,7 +141,7 @@ export default function ModernAirbnbListing() {
       <section className="w-full">
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-0">
           {listingData.images.slice(1).map((img, idx) => (
-            <div 
+            <div
               key={idx}
               className="relative aspect-square cursor-pointer overflow-hidden group"
               onClick={() => {
@@ -150,10 +149,12 @@ export default function ModernAirbnbListing() {
                 setShowGallery(true);
               }}
             >
-              <img 
-                src={img} 
+              <Image
+                src={img}
                 alt={`Gallery ${idx + 1}`}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                fill
+                sizes="(max-width: 1024px) 50vw, 33vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
             </div>
@@ -218,11 +219,15 @@ export default function ModernAirbnbListing() {
               <div className="grid sm:grid-cols-2 gap-6">
                 {listingData.hosts.map((host, idx) => (
                   <div key={idx} className="flex gap-4 p-6 bg-gray-50 rounded-2xl ">
-                    <img 
-                      src={host.image} 
-                      alt={host.name}
-                      className="w-16 h-16 rounded-full object-cover"
-                    />
+                    <div className="relative w-16 h-16 overflow-hidden rounded-full">
+                      <Image
+                        src={host.image}
+                        alt={host.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    </div>
                     <div>
                       <div className="font-semibold text-lg text-zinc-900">{host.name}</div>
                       <div className="text-sm text-gray-500 mb-2">{host.role}</div>
@@ -241,11 +246,11 @@ export default function ModernAirbnbListing() {
                 <span className="text-3xl font-bold text-zinc-900">{listingData.price}</span>
                 <span className="text-gray-600">night</span>
               </div>
-              
+
               <button className="w-full bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-xl font-semibold text-lg mb-4 transition-all">
                 Reserve
               </button>
-              
+
               <p className="text-center text-sm text-gray-600 mb-6">
                 You won't be charged yet
               </p>
@@ -301,27 +306,27 @@ export default function ModernAirbnbListing() {
       {/* Fullscreen Gallery Modal */}
       {showGallery && (
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
-          <button 
+          <button
             onClick={() => setShowGallery(false)}
             className="absolute top-4 right-4 text-white p-2 hover:bg-white/10 rounded-full transition-all z-10"
           >
             <X className="w-8 h-8" />
           </button>
-          
-          <button 
+
+          <button
             onClick={prevImage}
             className="absolute left-4 text-white p-3 hover:bg-white/10 rounded-full transition-all"
           >
             <ChevronLeft className="w-8 h-8" />
           </button>
-          
-          <img 
+
+          <img
             src={listingData.images[activeImage]}
             alt={`Gallery ${activeImage}`}
             className="max-h-[90vh] max-w-[90vw] object-contain"
           />
-          
-          <button 
+
+          <button
             onClick={nextImage}
             className="absolute right-4 text-white p-3 hover:bg-white/10 rounded-full transition-all"
           >
