@@ -52,7 +52,7 @@ const listingData = {
     },
     {
       name: "Petronela",
-      role: "Co-host",
+      role: "Host",
       image: "/hosts/petronela.png",
       bio: "Local expert ready to share the best tips about Iași."
     }
