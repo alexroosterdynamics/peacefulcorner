@@ -320,9 +320,12 @@ export default function ModernAirbnbListing() {
             <ChevronLeft className="w-8 h-8" />
           </button>
 
-          <img
+          <Image
             src={listingData.images[activeImage]}
-            alt={`Gallery ${activeImage}`}
+            alt={`Gallery ${activeImage + 1}`}
+            width={1600}
+            height={1200}
+            sizes="90vw"
             className="max-h-[90vh] max-w-[90vw] object-contain"
           />
 
