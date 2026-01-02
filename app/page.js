@@ -50,9 +50,9 @@ const listingData = {
       bio: "Friendly and responsive, always here to help make your stay perfect."
     },
     {
-      name: "Maria",
-      role: "Co-host",
-      image: "/hosts/maria.png",
+      name: "Petro",
+      role: "Host",
+      image: "/hosts/Petro.png",
       bio: "Local expert ready to share the best tips about Iași."
     }
   ]
