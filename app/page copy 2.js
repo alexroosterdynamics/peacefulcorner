@@ -109,6 +109,7 @@ export default function Page() {
 function ModernAirbnbListing() {
   const bookingRef = useRef(null);
   const footerRef = useRef(null);
+
   const langMenuRef = useRef(null);
 
   const [activeImage, setActiveImage] = useState(0);
@@ -200,9 +201,7 @@ function ModernAirbnbListing() {
           : Number(settings.basePrice || 220);
       });
 
-      const avg = Math.round(
-        prices.reduce((a, b) => a + b, 0) / Math.max(1, prices.length)
-      );
+      const avg = Math.round(prices.reduce((a, b) => a + b, 0) / Math.max(1, prices.length));
       if (!cancelled) setAvgPriceRON(avg);
     }
 
@@ -250,10 +249,7 @@ function ModernAirbnbListing() {
     return content;
   }, [content]);
 
-  const langMeta = useMemo(
-    () => LANGS.find((l) => l.code === lang) || LANGS[0],
-    [lang]
-  );
+  const langMeta = useMemo(() => LANGS.find((l) => l.code === lang) || LANGS[0], [lang]);
 
   return (
     <div
@@ -291,7 +287,7 @@ function ModernAirbnbListing() {
                 {listing.ui?.contact || "Contact"}
               </button>
 
-              {/* ✅ Language dropdown smaller (same sizing as Contact button) */}
+              {/* ✅ Language dropdown (same sizing as Contact button) */}
               <div className="relative" ref={langMenuRef}>
                 <button
                   type="button"
@@ -346,10 +342,14 @@ function ModernAirbnbListing() {
                 ) : null}
               </div>
 
-              {/* ✅ Book CTA smaller (same sizing as Contact button) */}
+              {/* ✅ Book CTA (same sizing as Contact button) */}
               <button
                 onClick={scrollToBooking}
-                className="px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg bg-rose-500 hover:bg-rose-600 text-white"
+                className={`px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg ${
+                  scrolled
+                    ? "bg-rose-500 hover:bg-rose-600 text-white"
+                    : "bg-rose-500 hover:bg-rose-600 text-white"
+                }`}
               >
                 {listing.ui?.bookNow || "Rezervă acum"}
               </button>
@@ -441,7 +441,9 @@ function ModernAirbnbListing() {
               <h2 className="text-3xl sm:text-4xl font-bold mb-6 text-zinc-900">
                 {listing.ui?.about}
               </h2>
-              <p className="text-gray-700 text-lg leading-relaxed">{listing.description}</p>
+              <p className="text-gray-700 text-lg leading-relaxed">
+                {listing.description}
+              </p>
             </div>
 
             <div>
@@ -452,13 +454,12 @@ function ModernAirbnbListing() {
                 {(listing.highlights || []).map((item, idx) => {
                   const IconComponent = HIGHLIGHT_ICONS[item.iconKey] || Home;
                   return (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl"
-                    >
+                    <div key={idx} className="flex items-start gap-4 p-6 bg-gray-50 rounded-2xl">
                       <IconComponent className="w-8 h-8 text-rose-500 flex-shrink-0" />
                       <div>
-                        <div className="font-semibold text-lg text-zinc-900">{item.title}</div>
+                        <div className="font-semibold text-lg text-zinc-900">
+                          {item.title}
+                        </div>
                         <div className="text-gray-600">{item.subtitle}</div>
                       </div>
                     </div>
@@ -475,10 +476,7 @@ function ModernAirbnbListing() {
                 {(listing.amenities || []).map((amenity, idx) => {
                   const IconComponent = AMENITY_ICONS[amenity.iconKey] || Home;
                   return (
-                    <div
-                      key={idx}
-                      className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-xl transition-all"
-                    >
+                    <div key={idx} className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-xl transition-all">
                       <IconComponent className="w-6 h-6 text-gray-700 flex-shrink-0 mt-0.5" />
                       <div>
                         <div className="font-medium text-gray-900">{amenity.name}</div>
@@ -497,6 +495,7 @@ function ModernAirbnbListing() {
               <div className="grid sm:grid-cols-2 gap-6">
                 {(listing.hosts || []).map((host, idx) => (
                   <div key={idx} className="flex gap-4 p-6 bg-gray-50 rounded-2xl">
+                    {/* Always round, never squeezed */}
                     <div className="relative w-16 h-16 min-w-16 min-h-16 flex-shrink-0 overflow-hidden rounded-full">
                       <Image
                         src={host.image}
@@ -556,25 +555,15 @@ function ModernAirbnbListing() {
       </section>
 
       {/* ✅ Full-width horizontal booking section */}
-      <section
-        ref={bookingRef}
-        id="rezervare"
-        className="w-full bg-gray-50 border-y border-gray-100"
-      >
+      <section ref={bookingRef} id="rezervare" className="w-full bg-gray-50 border-y border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
           <div className="mb-8">
-            <h2 className="text-3xl sm:text-4xl font-bold text-zinc-900">
-              {listing.ui?.bookingTitle}
-            </h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-zinc-900">{listing.ui?.bookingTitle}</h2>
             <p className="text-gray-600 mt-2">{listing.ui?.bookingSubtitle}</p>
           </div>
 
+          {/* Booking main card */}
           <div className="bg-white border-2 border-gray-200 rounded-3xl p-4 sm:p-6 shadow-xl">
-            {/* BookingWidget implements:
-               - mobile: date boxes clickable, checkout locked until check-in, check-in highlight
-               - required flags for name/phone
-               - success popup after submit
-            */}
             <BookingWidget
               defaultNightly={220}
               lang={lang}
@@ -584,19 +573,18 @@ function ModernAirbnbListing() {
             />
           </div>
 
+          {/* ✅ Info UNDER calendar/booking on desktop as well */}
           <div className="mt-6 bg-white border-2 border-gray-200 rounded-3xl p-6 shadow-xl">
             <div className="text-xl font-bold text-zinc-900 mb-3">{listing.ui?.infoTitle}</div>
             <div className="text-gray-700 space-y-2">
               <div>
-                <span className="font-semibold">{listing.ui?.addressLabel}:</span>{" "}
-                {listing.address}, {listing.city}
+                <span className="font-semibold">{listing.ui?.addressLabel}:</span> {listing.address}, {listing.city}
               </div>
               <div>
                 <span className="font-semibold">{listing.ui?.phoneLabel}:</span> +40 749 222 249
               </div>
               <div>
-                <span className="font-semibold">{listing.ui?.emailLabel}:</span>{" "}
-                ungureanupetronela23@gmail.com
+                <span className="font-semibold">{listing.ui?.emailLabel}:</span> ungureanupetronela23@gmail.com
               </div>
             </div>
           </div>
@@ -609,7 +597,8 @@ function ModernAirbnbListing() {
           const lat = listing?.geo?.lat ?? 47.18085959473225;
           const lng = listing?.geo?.lng ?? 27.57329758348965;
 
-          const delta = 0.004;
+          // small bounding box around the marker (controls zoom feel)
+          const delta = 0.004; // tweak if you want closer/farther
           const left = lng - delta;
           const right = lng + delta;
           const top = lat + delta;
