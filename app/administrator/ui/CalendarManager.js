@@ -1,6 +1,22 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+
+function guestLine(b) {
+  const a = Number(b?.guests?.adults || 0);
+  const c = Number(b?.guests?.children || 0);
+  const hasPets = Boolean(b?.pets?.hasPets);
+  const petsCount = Number(b?.pets?.count || 0);
+
+  const parts = [];
+  parts.push(`Adults ${a}`);
+  parts.push(`Children ${c}`);
+
+  if (hasPets) parts.push(`Pets ${petsCount > 0 ? petsCount : 1}`);
+
+  return parts.join(" • ");
+}
 
 function ymd(date) {
   const d = new Date(date);
@@ -73,6 +89,7 @@ export default function CalendarManager() {
 
   const [selectedDates, setSelectedDates] = useState(new Set());
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouching, setIsTouching] = useState(false);
 
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkSaving, setBulkSaving] = useState(false);
@@ -122,6 +139,7 @@ export default function CalendarManager() {
     return hasApproved || hasPending;
   }
 
+  // Mouse handlers
   function handleMouseDown(dateStr, e) {
     if (isLockedDay(dateStr)) return;
     e.preventDefault();
@@ -145,12 +163,65 @@ export default function CalendarManager() {
     setIsDragging(false);
   }
 
+  // Touch handlers for mobile
+  function handleTouchStart(dateStr, e) {
+    if (isLockedDay(dateStr)) return;
+    
+    // Single tap to deselect all
+    if (!isTouching) {
+      setSelectedDates(new Set());
+      setIsTouching(true);
+      
+      // Start new selection with this date
+      const newSelected = new Set();
+      newSelected.add(dateStr);
+      setSelectedDates(newSelected);
+    }
+  }
+
+  function handleTouchMove(e) {
+    if (!isTouching) return;
+    
+    // Prevent scrolling while selecting
+    e.preventDefault();
+    
+    // Get the element under the touch point
+    const touch = e.touches[0];
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    if (element && element.dataset.date) {
+      const dateStr = element.dataset.date;
+      if (!isLockedDay(dateStr)) {
+        setSelectedDates((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(dateStr);
+          return newSet;
+        });
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    setIsTouching(false);
+  }
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener("mouseup", handleMouseUp);
       return () => document.removeEventListener("mouseup", handleMouseUp);
     }
   }, [isDragging]);
+
+  useEffect(() => {
+    if (isTouching) {
+      document.addEventListener("touchend", handleTouchEnd);
+      document.addEventListener("touchcancel", handleTouchEnd);
+      return () => {
+        document.removeEventListener("touchend", handleTouchEnd);
+        document.removeEventListener("touchcancel", handleTouchEnd);
+      };
+    }
+  }, [isTouching]);
 
   function openDayModal(dateStr) {
     const day = daysMap.get(dateStr);
@@ -262,7 +333,6 @@ export default function CalendarManager() {
           const data = await res.json().catch(() => ({}));
 
           if (!res.ok || !data.ok) {
-            // Optional: show a nicer inline error UI; for now keep a minimal fallback
             console.error("Delete failed", data);
             return;
           }
@@ -321,7 +391,7 @@ export default function CalendarManager() {
       <div className="lg:hidden border-b border-gray-200 p-4 space-y-3">
         <div className="bg-gray-50 rounded-2xl p-4">
           <div className="text-sm font-semibold text-zinc-900 mb-3">
-            {hasSelection ? `${selectedDates.size} selected` : "Select dates to manage"}
+            {hasSelection ? `${selectedDates.size} selected` : "Tap and drag to select dates"}
           </div>
 
           <div className="space-y-2">
@@ -406,7 +476,11 @@ export default function CalendarManager() {
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1 sm:gap-2" onMouseLeave={() => setIsDragging(false)}>
+          <div 
+            className="grid grid-cols-7 gap-1 sm:gap-2" 
+            onMouseLeave={() => setIsDragging(false)}
+            onTouchMove={handleTouchMove}
+          >
             {grid.cells.map((d) => {
               const inMonth = d.getMonth() === month.getMonth();
               const dateStr = ymd(d);
@@ -426,7 +500,7 @@ export default function CalendarManager() {
               const locked = hasApproved || hasPending;
 
               const className = [
-                "rounded-xl sm:rounded-2xl border-2 p-2 sm:p-3 transition-all select-none cursor-pointer",
+                "rounded-xl sm:rounded-2xl border-2 p-2 sm:p-3 transition-all select-none cursor-pointer touch-none",
                 inMonth ? "" : "opacity-40",
                 hasApproved
                   ? "border-green-700 bg-green-700 text-white hover:bg-green-600"
@@ -450,10 +524,12 @@ export default function CalendarManager() {
               return (
                 <div
                   key={dateStr}
+                  data-date={dateStr}
                   onMouseDown={(e) => handleMouseDown(dateStr, e)}
                   onMouseEnter={() => handleMouseEnter(dateStr)}
+                  onTouchStart={(e) => handleTouchStart(dateStr, e)}
                   onClick={() => {
-                    if (locked) openDayModal(dateStr);
+                    if (locked && !isTouching) openDayModal(dateStr);
                   }}
                   className={className}
                 >
@@ -553,7 +629,7 @@ export default function CalendarManager() {
         </div>
       </div>
 
-      {/* MODAL: Day details with pending approvals */}
+      {/* Confirmation Modal */}
       {confirmModal ? (
         <div
           className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center px-4"
@@ -606,6 +682,8 @@ export default function CalendarManager() {
           </div>
         </div>
       ) : null}
+
+      {/* Day Modal */}
       {dayModal ? (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
@@ -633,6 +711,9 @@ export default function CalendarManager() {
                   <div className="text-sm text-gray-700">{dayModal.booked.phone || "—"}</div>
                   <div className="text-sm text-gray-700">
                     {dayModal.booked.checkIn} → {dayModal.booked.checkOut}
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {guestLine(dayModal.booked)}
                   </div>
 
                   {dayModal.booked.details ? (
@@ -676,6 +757,9 @@ export default function CalendarManager() {
                           <div className="text-sm text-gray-700">{b.phone || "—"}</div>
                           <div className="text-sm text-gray-700">
                             {b.checkIn} → {b.checkOut}
+                          </div>
+                          <div className="text-sm text-gray-700">
+                            {guestLine(b)}
                           </div>
 
                           {b.details ? (
