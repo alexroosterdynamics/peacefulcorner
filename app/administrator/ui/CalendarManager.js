@@ -61,6 +61,7 @@ function truncateName(name) {
 }
 
 export default function CalendarManager() {
+  const [confirmModal, setConfirmModal] = useState(null);
   const [month, setMonth] = useState(() => new Date());
 
   const [settings, setSettings] = useState({ basePrice: 220, currency: "RON" });
@@ -244,21 +245,35 @@ export default function CalendarManager() {
   }
 
   async function deleteBooking(id) {
-    if (!confirm("Delete this booking request / booking?")) return;
-    setBulkSaving(true);
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deleteBookingId: id }),
+    setConfirmModal({
+      title: "Delete booking?",
+      message: "This will permanently delete this booking request/booking. This cannot be undone.",
+      confirmText: "Delete",
+      danger: true,
+      onConfirm: async () => {
+        setBulkSaving(true);
+        try {
+          const res = await fetch("/api/admin/day", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ deleteBookingId: id }),
+          });
+
+          const data = await res.json().catch(() => ({}));
+
+          if (!res.ok || !data.ok) {
+            // Optional: show a nicer inline error UI; for now keep a minimal fallback
+            console.error("Delete failed", data);
+            return;
+          }
+
+          setDayModal(null);
+          await load();
+        } finally {
+          setBulkSaving(false);
+        }
+      },
     });
-    const data = await res.json();
-    setBulkSaving(false);
-    if (!data.ok) {
-      alert(data.error || "Delete failed");
-      return;
-    }
-    setDayModal(null);
-    await load();
   }
 
   async function handleSaveManualBooking(e) {
@@ -416,21 +431,21 @@ export default function CalendarManager() {
                 hasApproved
                   ? "border-green-700 bg-green-700 text-white hover:bg-green-600"
                   : hasPending
-                  ? "border-yellow-400 bg-yellow-300 text-zinc-900 hover:bg-yellow-200"
-                  : isSelected
-                  ? "border-rose-400 bg-rose-100"
-                  : isBlocked
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-gray-200 bg-white hover:bg-gray-50",
+                    ? "border-yellow-400 bg-yellow-300 text-zinc-900 hover:bg-yellow-200"
+                    : isSelected
+                      ? "border-rose-400 bg-rose-100"
+                      : isBlocked
+                        ? "border-zinc-900 bg-zinc-900 text-white"
+                        : "border-gray-200 bg-white hover:bg-gray-50",
               ].join(" ");
 
               const label = hasApproved
                 ? truncateName(day?.booked?.name || "Booked")
                 : hasPending
-                ? pendingCount > 1
-                  ? `Pending (${pendingCount})`
-                  : "Pending"
-                : `${formatRON(price)} ${settings.currency === "RON" ? "lei" : settings.currency}`;
+                  ? pendingCount > 1
+                    ? `Pending (${pendingCount})`
+                    : "Pending"
+                  : `${formatRON(price)} ${settings.currency === "RON" ? "lei" : settings.currency}`;
 
               return (
                 <div
@@ -459,10 +474,10 @@ export default function CalendarManager() {
                       hasApproved
                         ? "text-green-100 font-medium"
                         : hasPending
-                        ? "text-zinc-800 font-semibold"
-                        : isBlocked
-                        ? "text-gray-300"
-                        : "text-gray-600",
+                          ? "text-zinc-800 font-semibold"
+                          : isBlocked
+                            ? "text-gray-300"
+                            : "text-gray-600",
                     ].join(" ")}
                   >
                     {label}
@@ -539,6 +554,58 @@ export default function CalendarManager() {
       </div>
 
       {/* MODAL: Day details with pending approvals */}
+      {confirmModal ? (
+        <div
+          className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center px-4"
+          onClick={() => setConfirmModal(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xl font-bold text-zinc-900">{confirmModal.title}</div>
+                <div className="text-sm text-gray-600 mt-2">{confirmModal.message}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold transition-all"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={bulkSaving}
+                onClick={async () => {
+                  const fn = confirmModal.onConfirm;
+                  setConfirmModal(null);
+                  await fn?.();
+                }}
+                className={[
+                  "flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-white disabled:opacity-60",
+                  confirmModal.danger ? "bg-rose-500 hover:bg-rose-600" : "bg-zinc-900 hover:bg-black",
+                ].join(" ")}
+              >
+                {bulkSaving ? "Working..." : confirmModal.confirmText || "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {dayModal ? (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
@@ -753,3 +820,6 @@ export default function CalendarManager() {
     </div>
   );
 }
+
+
+

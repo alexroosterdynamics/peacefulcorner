@@ -232,7 +232,7 @@ function ModernAirbnbListing() {
         hosts: [],
         ui: {
           bookNow: "Rezervă acum",
-          checkAvailability: "Verifică disponibilitatea",
+          checkAvailability: "Rezervă acum",
           about: "Despre această locuință",
           offers: "Ce oferă această locuință",
           amenitiesTitle: "Facilități",
