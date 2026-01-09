@@ -2,18 +2,24 @@ import { NextResponse } from "next/server";
 import { getCollection } from "@/lib/db";
 import { sendBookingEmail } from "@/lib/email";
 
-function ymd(d) {
-  return new Date(d).toISOString().slice(0, 10);
+const KEY = "peacefulcorner";
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+    .toISOString()
+    .slice(0, 10);
 }
 
 function eachNightDates(checkIn, checkOut) {
-  const a = new Date(checkIn + "T00:00:00Z");
-  const b = new Date(checkOut + "T00:00:00Z");
   const out = [];
-  for (let d = new Date(a); d < b; d.setUTCDate(d.getUTCDate() + 1)) {
-    out.push(ymd(d));
-  }
+  for (let d = checkIn; d < checkOut; d = addDays(d, 1)) out.push(d);
   return out; // nights only, excludes checkout date
+}
+
+function coversNight(booking, dateStr) {
+  return booking.checkIn <= dateStr && dateStr < booking.checkOut;
 }
 
 export async function POST(req) {
@@ -23,6 +29,8 @@ export async function POST(req) {
   const checkOut = String(body.checkOut || "");
   const adults = Number(body.adults || 1);
   const children = Number(body.children || 0);
+  const pets = body.pets || { hasPets: false, count: 0 };
+
   const name = String(body.name || "").trim();
   const phone = String(body.phone || "").trim();
 
@@ -35,6 +43,9 @@ export async function POST(req) {
   if (Number.isNaN(children) || children < 0) {
     return NextResponse.json({ ok: false, error: "Children invalid" }, { status: 400 });
   }
+  if (checkOut <= checkIn) {
+    return NextResponse.json({ ok: false, error: "Invalid date range" }, { status: 400 });
+  }
 
   const nights = eachNightDates(checkIn, checkOut);
   if (nights.length < 1) {
@@ -42,38 +53,66 @@ export async function POST(req) {
   }
 
   const col = await getCollection();
-  const settings = (await col.findOne({ _type: "settings" })) || {
-    basePrice: 45,
-    currency: "EUR",
-    cleaningFee: 15,
-    serviceFee: 20,
-  };
 
-  // Load day overrides
-  const overrides = await col
-    .find({ _type: "day", date: { $in: nights } })
+  // Pricing doc
+  const pricing =
+    (await col.findOne({ _type: "pricing", key: KEY })) || {
+      _type: "pricing",
+      key: KEY,
+      basePrice: 220,
+      currency: "RON",
+      overrides: [],
+    };
+
+  const overrideMap = new Map(
+    (pricing.overrides || []).map((o) => [String(o.date), Number(o.price)])
+  );
+
+  // Blocked doc
+  const blocked =
+    (await col.findOne({ _type: "blocked", key: KEY })) || {
+      _type: "blocked",
+      key: KEY,
+      dates: [],
+    };
+  const blockedSet = new Set((blocked.dates || []).map(String));
+
+  // Approved bookings overlapping these nights (pending does NOT block)
+  const approvedBookings = await col
+    .find(
+      {
+        _type: "booking",
+        key: KEY,
+        status: "approved",
+        checkIn: { $lt: checkOut },
+        checkOut: { $gt: checkIn },
+      },
+      { projection: { _id: 1, checkIn: 1, checkOut: 1 } }
+    )
     .toArray();
 
-  const byDate = new Map(overrides.map((d) => [d.date, d]));
-
-  // Check availability and compute price
+  // Validate availability + compute price
   let subtotal = 0;
+
   for (const date of nights) {
-    const day = byDate.get(date);
-    const isAvailable = day ? day.isAvailable !== false : true;
-    if (!isAvailable) {
+    if (blockedSet.has(date)) {
       return NextResponse.json({ ok: false, error: `Not available on ${date}` }, { status: 409 });
     }
-    const price = day && typeof day.price === "number" ? day.price : settings.basePrice;
+
+    // check if covered by any approved booking
+    for (const b of approvedBookings) {
+      if (coversNight(b, date)) {
+        return NextResponse.json({ ok: false, error: `Not available on ${date}` }, { status: 409 });
+      }
+    }
+
+    const price = overrideMap.has(date) ? overrideMap.get(date) : Number(pricing.basePrice || 220);
     subtotal += price;
   }
 
-  const cleaningFee = Number(settings.cleaningFee || 0);
-  const serviceFee = Number(settings.serviceFee || 0);
-  const total = subtotal + cleaningFee + serviceFee;
-
   const booking = {
     _type: "booking",
+    key: KEY,
     status: "pending",
     createdAt: new Date(),
     name,
@@ -81,41 +120,29 @@ export async function POST(req) {
     checkIn,
     checkOut,
     guests: { adults, children },
-    pricing: { currency: settings.currency || "EUR", nights: nights.length, subtotal, cleaningFee, serviceFee, total },
+    pets: { hasPets: Boolean(pets.hasPets), count: Number(pets.count || 0) },
+    pricing: {
+      currency: pricing.currency || "RON",
+      nights: nights.length,
+      subtotal,
+      total: subtotal, // ✅ no fees
+    },
+    source: "guest",
   };
 
   const insert = await col.insertOne(booking);
-  booking._id = insert.insertedId;
-
-  // Block nights (set isAvailable=false). Preserve price if already set; otherwise set base price.
-  const bulk = nights.map((date) => ({
-    updateOne: {
-      filter: { _type: "day", date },
-      update: {
-        $set: {
-          _type: "day",
-          date,
-          isAvailable: false,
-          price: byDate.get(date)?.price ?? settings.basePrice,
-          updatedAt: new Date(),
-        },
-      },
-      upsert: true,
-    },
-  }));
-  if (bulk.length) await col.bulkWrite(bulk);
+  const bookingId = String(insert.insertedId);
 
   // Email notifications
   try {
-    await sendBookingEmail({ booking });
+    await sendBookingEmail({ booking: { ...booking, _id: bookingId } });
   } catch (e) {
-    // Booking stays created even if email fails
     return NextResponse.json({
       ok: true,
-      bookingId: String(booking._id),
+      bookingId,
       warning: "Booking saved, but email failed. Check SMTP settings.",
     });
   }
 
-  return NextResponse.json({ ok: true, bookingId: String(booking._id) });
+  return NextResponse.json({ ok: true, bookingId });
 }
