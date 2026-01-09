@@ -264,18 +264,16 @@ function ModernAirbnbListing() {
     >
       {/* Glassy Navbar */}
       <header
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
             ? "bg-white/70 backdrop-blur-xl shadow-lg border-b border-white/20"
             : "bg-transparent"
-        }`}
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div
-              className={`text-base sm:text-2xl font-bold transition-colors ${
-                scrolled ? "text-gray-900" : "text-white drop-shadow-lg"
-              }`}
+              className={`text-base sm:text-2xl font-bold transition-colors ${scrolled ? "text-gray-900" : "text-white drop-shadow-lg"
+                }`}
             >
               {listing.title}
             </div>
@@ -283,11 +281,10 @@ function ModernAirbnbListing() {
             <div className="flex items-center gap-2 sm:gap-3">
               <button
                 onClick={scrollToFooter}
-                className={`px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg ${
-                  scrolled
+                className={`px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg ${scrolled
                     ? "bg-gray-900 hover:bg-black text-white"
                     : "bg-white/15 hover:bg-white/25 text-white border border-white/20"
-                }`}
+                  }`}
               >
                 {listing.ui?.contact || "Contact"}
               </button>
@@ -296,20 +293,18 @@ function ModernAirbnbListing() {
                 <button
                   type="button"
                   onClick={() => setLangOpen((v) => !v)}
-                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold shadow-lg border transition-all ${
-                    scrolled
+                  className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold shadow-lg border transition-all ${scrolled
                       ? "bg-white text-gray-900 border-gray-200 hover:bg-gray-50"
                       : "bg-white/15 text-white border-white/20 hover:bg-white/25"
-                  }`}
+                    }`}
                   aria-haspopup="menu"
                   aria-expanded={langOpen}
                 >
                   <span className="text-xs sm:text-base leading-none">{langMeta.flag}</span>
                   <span className="tracking-wide leading-none">{langMeta.short}</span>
                   <span
-                    className={`ml-0.5 text-[10px] sm:text-xs leading-none ${
-                      scrolled ? "text-gray-500" : "text-white/80"
-                    }`}
+                    className={`ml-0.5 text-[10px] sm:text-xs leading-none ${scrolled ? "text-gray-500" : "text-white/80"
+                      }`}
                   >
                     ▾
                   </span>
@@ -328,11 +323,10 @@ function ModernAirbnbListing() {
                           setLang(l.code);
                           setLangOpen(false);
                         }}
-                        className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-all ${
-                          lang === l.code
+                        className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-all ${lang === l.code
                             ? "bg-gray-50 text-gray-900"
                             : "bg-white text-gray-800 hover:bg-gray-50"
-                        }`}
+                          }`}
                         role="menuitem"
                       >
                         <span className="flex items-center gap-2">
@@ -538,8 +532,8 @@ function ModernAirbnbListing() {
                 {lang === "ro"
                   ? "Selectează datele și trimite cererea."
                   : lang === "it"
-                  ? "Seleziona le date e invia la richiesta."
-                  : "Select dates and send your request."}
+                    ? "Seleziona le date e invia la richiesta."
+                    : "Select dates and send your request."}
               </p>
 
               <button
@@ -565,6 +559,11 @@ function ModernAirbnbListing() {
               {listing.ui?.bookingTitle}
             </h2>
             <p className="text-gray-600 mt-2">{listing.ui?.bookingSubtitle}</p>
+
+            {/* Check-in / Check-out hours */}
+            <p className="text-gray-700 mt-2">
+              <strong>Check-in:</strong> 3:00 PM • <strong>Check-out:</strong> 11:00 AM
+            </p>
           </div>
 
           <div className="bg-white border-2 border-gray-200 rounded-3xl p-4 sm:p-6 shadow-xl">
