@@ -15,7 +15,7 @@ function addDays(dateStr, n) {
 function eachNightDates(checkIn, checkOut) {
   const out = [];
   for (let d = checkIn; d < checkOut; d = addDays(d, 1)) out.push(d);
-  return out; // nights only, excludes checkout date
+  return out;
 }
 
 function coversNight(booking, dateStr) {
@@ -33,6 +33,7 @@ export async function POST(req) {
 
   const name = String(body.name || "").trim();
   const phone = String(body.phone || "").trim();
+  const details = String(body.details || "").trim(); // ✅ optional
 
   if (!checkIn || !checkOut || !name || !phone) {
     return NextResponse.json({ ok: false, error: "Missing required fields" }, { status: 400 });
@@ -99,7 +100,6 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, error: `Not available on ${date}` }, { status: 409 });
     }
 
-    // check if covered by any approved booking
     for (const b of approvedBookings) {
       if (coversNight(b, date)) {
         return NextResponse.json({ ok: false, error: `Not available on ${date}` }, { status: 409 });
@@ -117,6 +117,7 @@ export async function POST(req) {
     createdAt: new Date(),
     name,
     phone,
+    details: details || "", // ✅ store optional field
     checkIn,
     checkOut,
     guests: { adults, children },
@@ -125,7 +126,7 @@ export async function POST(req) {
       currency: pricing.currency || "RON",
       nights: nights.length,
       subtotal,
-      total: subtotal, // ✅ no fees
+      total: subtotal,
     },
     source: "guest",
   };
@@ -133,7 +134,6 @@ export async function POST(req) {
   const insert = await col.insertOne(booking);
   const bookingId = String(insert.insertedId);
 
-  // Email notifications
   try {
     await sendBookingEmail({ booking: { ...booking, _id: bookingId } });
   } catch (e) {

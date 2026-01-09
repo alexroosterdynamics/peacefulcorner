@@ -23,6 +23,13 @@ import {
 import BookingWidget from "@/components/BookingWidget";
 
 /**
+ * ✅ Map zoom constant (smaller = more zoom)
+ * Previous delta was 0.004.
+ * 25% more zoom-in => 0.004 * 0.75 = 0.003
+ */
+const MAP_DELTA = 0.0017
+
+/**
  * Icon maps (text comes from DB, icons stay in code)
  */
 const HIGHLIGHT_ICONS = {
@@ -69,7 +76,6 @@ function addDaysYMD(ymdStr, days) {
 }
 
 function detectLanguage() {
-  // Default Romanian if unsure
   try {
     const locale =
       (typeof navigator !== "undefined" &&
@@ -123,7 +129,6 @@ function ModernAirbnbListing() {
 
   useOutsideClick(langMenuRef, () => setLangOpen(false));
 
-  // Restore language
   useEffect(() => {
     const saved =
       typeof window !== "undefined"
@@ -159,7 +164,6 @@ function ModernAirbnbListing() {
         (prev - 1 + (content?.images?.length || 1)) % (content?.images?.length || 1)
     );
 
-  // Fetch translated content from DB (via API)
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -175,7 +179,6 @@ function ModernAirbnbListing() {
     };
   }, [lang]);
 
-  // Compute average price for next 14 days (RON)
   useEffect(() => {
     let cancelled = false;
 
@@ -212,7 +215,6 @@ function ModernAirbnbListing() {
     };
   }, []);
 
-  // Fallbacks while loading
   const listing = useMemo(() => {
     if (!content) {
       return {
@@ -279,7 +281,6 @@ function ModernAirbnbListing() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Contact button */}
               <button
                 onClick={scrollToFooter}
                 className={`px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg ${
@@ -291,7 +292,6 @@ function ModernAirbnbListing() {
                 {listing.ui?.contact || "Contact"}
               </button>
 
-              {/* ✅ Language dropdown smaller (same sizing as Contact button) */}
               <div className="relative" ref={langMenuRef}>
                 <button
                   type="button"
@@ -346,7 +346,6 @@ function ModernAirbnbListing() {
                 ) : null}
               </div>
 
-              {/* ✅ Book CTA smaller (same sizing as Contact button) */}
               <button
                 onClick={scrollToBooking}
                 className="px-3 sm:px-5 py-1.5 sm:py-3 text-xs sm:text-sm rounded-full font-semibold transition-all shadow-lg bg-rose-500 hover:bg-rose-600 text-white"
@@ -435,7 +434,6 @@ function ModernAirbnbListing() {
       {/* Content Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-16">
-          {/* Main Content */}
           <div className="lg:col-span-2 space-y-12">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold mb-6 text-zinc-900">
@@ -555,7 +553,7 @@ function ModernAirbnbListing() {
         </div>
       </section>
 
-      {/* ✅ Full-width horizontal booking section */}
+      {/* Booking */}
       <section
         ref={bookingRef}
         id="rezervare"
@@ -570,11 +568,6 @@ function ModernAirbnbListing() {
           </div>
 
           <div className="bg-white border-2 border-gray-200 rounded-3xl p-4 sm:p-6 shadow-xl">
-            {/* BookingWidget implements:
-               - mobile: date boxes clickable, checkout locked until check-in, check-in highlight
-               - required flags for name/phone
-               - success popup after submit
-            */}
             <BookingWidget
               defaultNightly={220}
               lang={lang}
@@ -603,13 +596,13 @@ function ModernAirbnbListing() {
         </div>
       </section>
 
-      {/* Map Section - Full Width (exact location, free OSM embed) */}
+      {/* Map Section */}
       <section className="w-full h-96 sm:h-[500px]">
         {(() => {
           const lat = listing?.geo?.lat ?? 47.18085959473225;
           const lng = listing?.geo?.lng ?? 27.57329758348965;
 
-          const delta = 0.004;
+          const delta = MAP_DELTA;
           const left = lng - delta;
           const right = lng + delta;
           const top = lat + delta;
@@ -645,7 +638,7 @@ function ModernAirbnbListing() {
         </div>
       </footer>
 
-      {/* Fullscreen Gallery Modal */}
+      {/* Gallery Modal */}
       {showGallery && (
         <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
           <button

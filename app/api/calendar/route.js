@@ -68,7 +68,24 @@ export async function GET(req) {
         checkIn: { $lt: toPlus1 },
         checkOut: { $gt: from },
       },
-      { projection: { _id: 1, key: 1, status: 1, createdAt: 1, approvedAt: 1, name: 1, phone: 1, checkIn: 1, checkOut: 1, guests: 1, pets: 1, pricing: 1, source: 1 } }
+      {
+        projection: {
+          _id: 1,
+          key: 1,
+          status: 1,
+          createdAt: 1,
+          approvedAt: 1,
+          name: 1,
+          phone: 1,
+          details: 1, // ✅ IMPORTANT: include details
+          checkIn: 1,
+          checkOut: 1,
+          guests: 1,
+          pets: 1,
+          pricing: 1,
+          source: 1,
+        },
+      }
     )
     .toArray();
 
@@ -77,7 +94,7 @@ export async function GET(req) {
 
   // Build fast maps for day flags
   const approvedByDate = new Map(); // date -> approved booking (first)
-  const pendingByDate = new Map();  // date -> array of pending bookings
+  const pendingByDate = new Map(); // date -> array of pending bookings
 
   const dates = eachDate(from, to);
 
@@ -121,6 +138,7 @@ export async function GET(req) {
             id: String(booked._id),
             name: booked.name,
             phone: booked.phone,
+            details: booked.details || "", // ✅ include details in day booked summary too
             guests: booked.guests,
             pets: booked.pets,
             checkIn: booked.checkIn,
@@ -145,6 +163,7 @@ export async function GET(req) {
       approvedAt: b.approvedAt,
       name: b.name,
       phone: b.phone,
+      details: b.details || "", 
       checkIn: b.checkIn,
       checkOut: b.checkOut,
       guests: b.guests,

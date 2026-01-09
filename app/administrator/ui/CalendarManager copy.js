@@ -302,7 +302,7 @@ export default function CalendarManager() {
 
   return (
     <div className="bg-white">
-      {/* Mobile Controls */}
+      {/* Mobile: Controls at top */}
       <div className="lg:hidden border-b border-gray-200 p-4 space-y-3">
         <div className="bg-gray-50 rounded-2xl p-4">
           <div className="text-sm font-semibold text-zinc-900 mb-3">
@@ -364,6 +364,7 @@ export default function CalendarManager() {
       </div>
 
       <div className="flex flex-col lg:flex-row">
+        {/* Calendar */}
         <div className="flex-1 p-4 lg:p-8 space-y-4 max-w-7xl mx-auto w-full">
           <div className="flex items-center justify-between">
             <div className="text-xl sm:text-2xl font-bold text-zinc-900">{monthLabel(month)}</div>
@@ -477,6 +478,7 @@ export default function CalendarManager() {
           ) : null}
         </div>
 
+        {/* Desktop: Controls on right */}
         <div className="hidden lg:block w-80 border-l border-gray-200 p-6 space-y-4">
           <div className="bg-gray-50 rounded-2xl p-4">
             <div className="text-sm font-semibold text-zinc-900 mb-3">
@@ -567,20 +569,11 @@ export default function CalendarManager() {
                   <div className="text-sm text-gray-700">
                     {dayModal.booked.checkIn} → {dayModal.booked.checkOut}
                   </div>
-
-                  {dayModal.booked.details ? (
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                      <span className="font-semibold">Details:</span> {dayModal.booked.details}
-                    </div>
-                  ) : null}
-
                   <div className="text-sm text-gray-700">
                     Total:{" "}
                     <span className="font-semibold">
                       {formatRON(dayModal.booked.pricing?.total || 0)}{" "}
-                      {(dayModal.booked.pricing?.currency || settings.currency) === "RON"
-                        ? "lei"
-                        : dayModal.booked.pricing?.currency}
+                      {(dayModal.booked.pricing?.currency || settings.currency) === "RON" ? "lei" : dayModal.booked.pricing?.currency}
                     </span>
                   </div>
                 </div>
@@ -610,20 +603,11 @@ export default function CalendarManager() {
                           <div className="text-sm text-gray-700">
                             {b.checkIn} → {b.checkOut}
                           </div>
-
-                          {b.details ? (
-                            <div className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
-                              <span className="font-semibold">Details:</span> {b.details}
-                            </div>
-                          ) : null}
-
                           <div className="text-sm text-gray-700 mt-1">
                             Total:{" "}
                             <span className="font-semibold">
                               {formatRON(b.pricing?.total || 0)}{" "}
-                              {(b.pricing?.currency || settings.currency) === "RON"
-                                ? "lei"
-                                : b.pricing?.currency}
+                              {(b.pricing?.currency || settings.currency) === "RON" ? "lei" : b.pricing?.currency}
                             </span>
                           </div>
                         </div>
@@ -660,7 +644,7 @@ export default function CalendarManager() {
         </div>
       ) : null}
 
-      {/* MODAL: CREATE MANUAL BOOKING */}
+     {/* MODAL: Create manual approved booking */}
       {createBookingModal ? (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
@@ -690,7 +674,9 @@ export default function CalendarManager() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Guest Name</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Guest Name
+                </label>
                 <input
                   required
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
@@ -700,7 +686,9 @@ export default function CalendarManager() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Phone Number</label>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Phone Number
+                </label>
                 <input
                   className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
                   value={bookingForm.phone}
@@ -710,7 +698,9 @@ export default function CalendarManager() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Number of People</label>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                    Number of People
+                  </label>
                   <input
                     type="number"
                     min="1"
@@ -719,6 +709,7 @@ export default function CalendarManager() {
                     onChange={(e) => setBookingForm({ ...bookingForm, people: e.target.value })}
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Pets</label>
                   <input
