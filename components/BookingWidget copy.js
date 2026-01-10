@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { CheckCircle, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 /** Date helpers */
 function ymd(date) {
@@ -22,20 +23,6 @@ function nightsBetween(a, b) {
 function eachNight(a, b) {
   const n = nightsBetween(a, b);
   return Array.from({ length: Math.max(0, n) }, (_, i) => addDays(a, i));
-}
-function formatDatePretty(dateStr, lang) {
-  if (!dateStr) return "";
-  const locale = lang === "it" ? "it-IT" : lang === "en" ? "en-GB" : "ro-RO";
-  try {
-    const d = new Date(dateStr + "T00:00:00Z");
-    return new Intl.DateTimeFormat(locale, {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    }).format(d);
-  } catch {
-    return dateStr;
-  }
 }
 
 /** Calendar helpers */
@@ -80,7 +67,7 @@ function formatRON(value) {
   return new Intl.NumberFormat("ro-RO").format(n);
 }
 
-/** Media query (mobile detection) */
+/** Media query */
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -93,7 +80,6 @@ function useIsMobile() {
   return isMobile;
 }
 
-/** Small UI parts */
 function Counter({ label, value, setValue, min = 0, helper }) {
   return (
     <div className="flex items-center justify-between p-4 rounded-2xl border border-gray-200">
@@ -122,22 +108,42 @@ function Counter({ label, value, setValue, min = 0, helper }) {
   );
 }
 
-function FieldBox({ label, value, onClear }) {
+function FieldBox({ label, value, onClear, onClick, disabled, children }) {
   return (
-    <div className="flex-1 rounded-2xl border border-gray-200 p-4">
+    <div
+      className={[
+        "flex-1 rounded-2xl border border-gray-200 p-4",
+        onClick ? "cursor-pointer select-none" : "",
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50",
+      ].join(" ")}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick && !disabled ? 0 : undefined}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={
+        onClick && !disabled
+          ? (e) => {
+            if (e.key === "Enter" || e.key === " ") onClick?.();
+          }
+          : undefined
+      }
+    >
       <div className="text-xs font-semibold text-gray-600">{label}</div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="font-semibold text-zinc-900">{value || "—"}</div>
         {value ? (
           <button
             type="button"
-            onClick={onClear}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear?.();
+            }}
             className="text-sm text-gray-500 hover:text-gray-900"
           >
             Șterge
           </button>
         ) : null}
       </div>
+      {children ? <div className="mt-3">{children}</div> : null}
     </div>
   );
 }
@@ -155,22 +161,28 @@ function t(lang) {
     petsCount: "Număr animale",
     name: "Numele tău",
     phone: "Număr de telefon",
+    details: "Detalii (opțional)",
     send: "Trimite cererea de rezervare",
     sending: "Se trimite…",
     notCharged: "Nu vei fi taxat(ă) încă.",
     selectDates: "Selectează datele de sosire și plecare.",
     fillContact: "Te rugăm să completezi numele și numărul de telefon.",
     rangeUnavailable: "Există nopți indisponibile în interval.",
-    sentOk: "Cererea a fost trimisă! Te contactăm telefonic pentru confirmare.",
+    sentOkTitle: "Cererea a fost trimisă!",
+    sentOkBody: "Am primit datele și te contactăm telefonic în mai puțin de 1 oră.",
     nights: "nopți",
     total: "Total",
     invalidRange: "Interval invalid.",
+    unavailable: "Indisponibil",
+    available: "Disponibil",
     pickDates: "Alege datele",
     weekdays: ["Lu", "Ma", "Mi", "Jo", "Vi", "Sâ", "Du"],
-    pickCheckInFirst: "Alege check-in întâi",
-    selectCheckIn: "Selectează check-in",
-    selectCheckOut: "Selectează check-out",
-    close: "Închide",
+    required: "Obligatoriu",
+    optional: "Opțional",
+    pickerTitle: "Alege datele",
+    pickerHintCheckin: "Alege check-in",
+    pickerHintCheckout: "Alege check-out",
+    done: "Gata",
   };
 
   const en = {
@@ -185,22 +197,28 @@ function t(lang) {
     petsCount: "Number of pets",
     name: "Your name",
     phone: "Phone number",
+    details: "Details (optional)",
     send: "Send booking request",
     sending: "Sending…",
     notCharged: "You will not be charged yet.",
     selectDates: "Select check-in and check-out dates.",
     fillContact: "Please enter your name and phone number.",
     rangeUnavailable: "Some nights in the selected range are unavailable.",
-    sentOk: "Request sent! We will call you to confirm.",
+    sentOkTitle: "Request sent!",
+    sentOkBody: "We received your information and will call you within 1 hour.",
     nights: "nights",
     total: "Total",
     invalidRange: "Invalid range.",
+    unavailable: "Unavailable",
+    available: "Available",
     pickDates: "Pick dates",
     weekdays: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
-    pickCheckInFirst: "Pick check-in first",
-    selectCheckIn: "Select check-in",
-    selectCheckOut: "Select check-out",
-    close: "Close",
+    required: "Required",
+    optional: "Optional",
+    pickerTitle: "Pick dates",
+    pickerHintCheckin: "Pick check-in",
+    pickerHintCheckout: "Pick check-out",
+    done: "Done",
   };
 
   const it = {
@@ -215,27 +233,228 @@ function t(lang) {
     petsCount: "Numero animali",
     name: "Il tuo nome",
     phone: "Telefono",
+    details: "Dettagli (opzionale)",
     send: "Invia richiesta",
     sending: "Invio…",
     notCharged: "Non verrà addebitato nulla ora.",
     selectDates: "Seleziona check-in e check-out.",
     fillContact: "Inserisci nome e telefono.",
     rangeUnavailable: "Alcune notti non sono disponibili.",
-    sentOk: "Richiesta inviata! Ti chiameremo per conferma.",
+    sentOkTitle: "Richiesta inviata!",
+    sentOkBody: "Abbiamo ricevuto i dati e ti chiameremo entro 1 ora.",
     nights: "notti",
     total: "Totale",
     invalidRange: "Intervallo non valido.",
+    unavailable: "Non disponibile",
+    available: "Disponibile",
     pickDates: "Scegli date",
     weekdays: ["Lu", "Ma", "Me", "Gi", "Ve", "Sa", "Do"],
-    pickCheckInFirst: "Scegli prima il check-in",
-    selectCheckIn: "Seleziona check-in",
-    selectCheckOut: "Seleziona check-out",
-    close: "Chiudi",
+    required: "Obbligatorio",
+    optional: "Opzionale",
+    pickerTitle: "Scegli date",
+    pickerHintCheckin: "Scegli check-in",
+    pickerHintCheckout: "Scegli check-out",
+    done: "Fatto",
   };
 
   if (lang === "it") return it;
   if (lang === "en") return en;
   return ro;
+}
+
+/**
+ * Mobile “native-like” modal calendar:
+ * - opens like native picker (overlay)
+ * - highlights check-in + check-out + range
+ * - no "today outline" (we show a tiny dot)
+ * - after selecting check-in, it automatically switches to checkout selection
+ */
+function MobileDateRangeModal({
+  open,
+  onClose,
+  lang,
+  L,
+  month,
+  setMonth,
+  checkIn,
+  checkOut,
+  activeField,
+  setActiveField,
+  dayInfo,
+  pickDate,
+}) {
+  const grid = useMemo(() => gridCells(month), [month]);
+  const today = useMemo(() => ymd(new Date()), []);
+
+  // lock body scroll when open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  const hint =
+    activeField === "checkin" ? L.pickerHintCheckin : L.pickerHintCheckout;
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black/40 flex items-end sm:items-center justify-center">
+      {/* sheet */}
+      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+        {/* top bar */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <div className="text-xs text-gray-500 font-semibold">{L.pickerTitle}</div>
+            <div className="text-sm font-semibold text-zinc-900">{hint}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* selected chips */}
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveField("checkin")}
+              className={[
+                "rounded-2xl border p-3 text-left transition-all",
+                activeField === "checkin" ? "border-gray-900" : "border-gray-200",
+              ].join(" ")}
+            >
+              <div className="text-xs font-semibold text-gray-500">{L.checkIn}</div>
+              <div className="mt-1 font-semibold text-zinc-900">{checkIn || "—"}</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!checkIn) setActiveField("checkin");
+                else setActiveField("checkout");
+              }}
+              className={[
+                "rounded-2xl border p-3 text-left transition-all",
+                activeField === "checkout" ? "border-gray-900" : "border-gray-200",
+                !checkIn ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              <div className="text-xs font-semibold text-gray-500">{L.checkOut}</div>
+              <div className="mt-1 font-semibold text-zinc-900">{checkOut || "—"}</div>
+            </button>
+          </div>
+        </div>
+
+        {/* month nav */}
+        <div className="flex items-center justify-between px-5 py-4">
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            onClick={() => setMonth((m) => addMonths(m, -1))}
+            aria-label="Prev month"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
+          </button>
+
+          <div className="font-bold text-zinc-900 capitalize">
+            {monthLabel(month, lang)}
+          </div>
+
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            onClick={() => setMonth((m) => addMonths(m, 1))}
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        {/* weekdays */}
+        <div className="grid grid-cols-7 px-5 pb-2 text-[11px] text-gray-500 font-semibold">
+          {L.weekdays.map((d) => (
+            <div key={d} className="text-center py-1">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* days */}
+        <div className="grid grid-cols-7 px-4 pb-5 gap-y-2">
+          {grid.cells.map((d) => {
+            const dateStr = ymd(d);
+            const inMonth = d.getMonth() === month.getMonth();
+            const info = dayInfo(dateStr);
+            const unavailable = !info.isAvailable;
+
+            const isStart = !!checkIn && dateStr === checkIn;
+            const isEnd = !!checkOut && dateStr === checkOut;
+            const isInRange =
+              !!checkIn && !!checkOut && dateStr > checkIn && dateStr < checkOut;
+
+            const isToday = dateStr === today;
+
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                disabled={unavailable}
+                onClick={() => pickDate(dateStr)}
+                className={[
+                  "relative overflow-hidden h-11 w-full flex items-center justify-center transition-all",
+                  inMonth ? "" : "opacity-35",
+                  unavailable
+                    ? "cursor-not-allowed bg-gray-50 dark:bg-white/5" // ✅ no opacity on the whole button
+                    : "hover:bg-gray-50",
+                ].join(" ")}
+              >
+                {/* hatch overlay for unavailable */}
+                {unavailable ? (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 pc-hatch-unavailable opacity-80"
+                  />
+                ) : null}
+
+                {/* range background */}
+                {isInRange ? (
+                  <span className="absolute inset-y-1 left-1 right-1 rounded-full bg-rose-100" />
+                ) : null}
+
+                {/* start/end background */}
+                {(isStart || isEnd) ? (
+                  <span className="absolute inset-1 rounded-full bg-rose-500" />
+                ) : null}
+
+                <span
+                  className={[
+                    "relative z-10 text-sm font-semibold",
+                    (isStart || isEnd) ? "text-white" : "text-gray-900",
+                    unavailable ? "text-gray-400 dark:text-white/50" : "",
+                  ].join(" ")}
+                >
+                  {d.getDate()}
+                </span>
+
+                {isToday && !(isStart || isEnd) ? (
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gray-400" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function BookingWidget({
@@ -244,22 +463,19 @@ export default function BookingWidget({
   lang = "ro",
   layout = "split",
   mobileMode = "date-inputs",
-  hideFees = true, // unused but kept for compatibility
+  hideFees = true, // unused (kept for compatibility)
 }) {
   const L = useMemo(() => t(lang), [lang]);
   const isMobile = useIsMobile();
 
-  // Desktop month calendar state
+  // Desktop calendar month (only used when showing desktop grid)
   const [month, setMonth] = useState(() => new Date());
   const grid = useMemo(() => gridCells(month), [month]);
 
-  // ✅ Mobile calendar modal state
-  const [mobileCalOpen, setMobileCalOpen] = useState(false);
-  const [activeMobileField, setActiveMobileField] = useState(null); // "checkIn" | "checkOut" | null
+  // Mobile modal month (separate, so desktop doesn’t jump)
   const [mobileMonth, setMobileMonth] = useState(() => new Date());
-  const mobileGrid = useMemo(() => gridCells(mobileMonth), [mobileMonth]);
 
-  // Pricing/settings from DB (we ignore cleaning/service fees in UI/total)
+  // Pricing/settings + day map (computed by API)
   const [settings, setSettings] = useState({ basePrice: defaultNightly, currency: "RON" });
   const [daysMap, setDaysMap] = useState(new Map());
 
@@ -276,12 +492,19 @@ export default function BookingWidget({
   // Contact
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [details, setDetails] = useState("");
 
   // UX
   const [status, setStatus] = useState({ type: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  const canOpenCheckout = Boolean(checkIn);
+  // ✅ Success popup
+  const [successModal, setSuccessModal] = useState(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+
+  // ✅ Mobile picker modal
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activeField, setActiveField] = useState("checkin"); // "checkin" | "checkout"
 
   function dayInfo(dateStr) {
     const d = daysMap.get(dateStr);
@@ -300,12 +523,12 @@ export default function BookingWidget({
       const m = new Map();
       for (const d of data.days || []) m.set(d.date, d);
       setDaysMap(m);
-      return { settings: data.settings, days: data.days || [] };
+      return data;
     }
     return null;
   }
 
-  // Desktop month load
+  // desktop calendar loads when visible
   useEffect(() => {
     if (isMobile && mobileMode === "date-inputs") return;
     const from = ymd(grid.cells[0]);
@@ -314,16 +537,18 @@ export default function BookingWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, isMobile, mobileMode]);
 
-  // ✅ Mobile modal month load (only when modal open)
+  // mobile modal loads when opened / month changes
   useEffect(() => {
-    if (!mobileCalOpen) return;
-    const from = ymd(mobileGrid.cells[0]);
-    const to = ymd(mobileGrid.cells[41]);
+    if (!isMobile || mobileMode !== "date-inputs") return;
+    if (!pickerOpen) return;
+
+    const g = gridCells(mobileMonth);
+    const from = ymd(g.cells[0]);
+    const to = ymd(g.cells[41]);
     loadCalendar(from, to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mobileCalOpen, mobileMonth]);
+  }, [pickerOpen, mobileMonth, isMobile, mobileMode]);
 
-  // Average next 14 days (for hero)
   useEffect(() => {
     async function computeAvg() {
       const from = ymd(new Date());
@@ -337,7 +562,7 @@ export default function BookingWidget({
         const day = map.get(dt);
         return typeof day?.price === "number"
           ? day.price
-          : data.settings?.basePrice ?? defaultNightly;
+          : (data.settings?.basePrice ?? defaultNightly);
       });
 
       const avg = Math.round(prices.reduce((a, b) => a + b, 0) / Math.max(1, prices.length));
@@ -347,7 +572,6 @@ export default function BookingWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Nights & subtotal (NO fees)
   const nights = useMemo(() => {
     if (!checkIn || !checkOut) return [];
     return eachNight(checkIn, checkOut);
@@ -372,6 +596,11 @@ export default function BookingWidget({
     return { ok: true };
   }
 
+  /**
+   * Desktop behavior:
+   * If user has checkIn and clicks a checkOut date but range contains unavailable nights,
+   * then set checkIn to the clicked date and clear checkOut.
+   */
   function pickDateDesktop(dateStr) {
     if (!dayInfo(dateStr).isAvailable) return;
 
@@ -389,100 +618,86 @@ export default function BookingWidget({
         setCheckOut("");
         return;
       }
-      const res = validateRange(checkIn, dateStr);
-      if (!res.ok) return setStatus({ type: "error", message: res.message });
-      setCheckOut(dateStr);
-    }
-  }
 
-  // ✅ Mobile open/close (click anywhere on boxes)
-  async function openMobileCalendar(field) {
-    if (field === "checkOut" && !checkIn) return; // hard lock
-    setStatus({ type: "", message: "" });
-    setActiveMobileField(field);
-
-    // show relevant month
-    if (field === "checkOut" && checkIn) {
-      const d = new Date(checkIn + "T00:00:00");
-      setMobileMonth(d);
-      // preload range for checkout validation (next ~120 days)
-      await loadCalendar(checkIn, addDays(checkIn, 120));
-    } else if (field === "checkIn" && checkIn) {
-      const d = new Date(checkIn + "T00:00:00");
-      setMobileMonth(d);
-    } else {
-      setMobileMonth(new Date());
-    }
-
-    setMobileCalOpen(true);
-  }
-
-  function closeMobileCalendar() {
-    setMobileCalOpen(false);
-    setActiveMobileField(null);
-  }
-
-  async function pickDateMobile(dateStr) {
-    const info = dayInfo(dateStr);
-    if (!info.isAvailable) return;
-
-    // if selecting checkout, disallow <= checkin
-    if (activeMobileField === "checkOut" && checkIn && dateStr <= checkIn) return;
-
-    if (activeMobileField === "checkIn") {
-      setCheckIn(dateStr);
-      setCheckOut("");
-      setStatus({ type: "", message: "" });
-
-      // preload data for upcoming checkout selection
-      await loadCalendar(dateStr, addDays(dateStr, 120));
-
-      // close calendar (user then taps checkout box)
-      closeMobileCalendar();
-      return;
-    }
-
-    if (activeMobileField === "checkOut") {
-      if (!checkIn) return;
       const res = validateRange(checkIn, dateStr);
       if (!res.ok) {
-        setStatus({ type: "error", message: res.message });
+        setCheckIn(dateStr);
+        setCheckOut("");
         return;
       }
       setCheckOut(dateStr);
-      setStatus({ type: "success", message: "" });
-      closeMobileCalendar();
     }
   }
 
-  function getMobileDayBtnClass(d, inMonth, unavailable) {
-    const dateStr = ymd(d);
-    const isCheckIn = checkIn && dateStr === checkIn;
-    const isCheckOut = checkOut && dateStr === checkOut;
+  /**
+   * Mobile modal picker behavior:
+   * - Tap check-in field => choose check-in, then automatically switch to checkout selection
+   * - Tap check-out field => if no check-in, start with check-in; otherwise choose checkout with range highlight
+   * - Close modal when both dates are selected
+   */
+  function pickDateMobile(dateStr) {
+    if (!dayInfo(dateStr).isAvailable) return;
 
-    const isBetween =
-      checkIn && checkOut && dateStr > checkIn && dateStr < checkOut;
+    setStatus({ type: "", message: "" });
 
-    // ✅ key requirement: when picking checkout, check-in must be CLEARLY highlighted
-    const anchorHighlight =
-      activeMobileField === "checkOut" && isCheckIn;
+    // Selecting check-in: set it and close immediately
+    if (activeField === "checkin") {
+      setCheckIn(dateStr);
 
-    const invalidCheckoutPick =
-      activeMobileField === "checkOut" && checkIn && dateStr <= checkIn;
+      // If checkout exists but is now invalid, clear it
+      setCheckOut((prev) => (prev && prev <= dateStr ? "" : prev));
 
-    const disabled = unavailable || invalidCheckoutPick;
+      setPickerOpen(false);
+      return;
+    }
 
-    return [
-      "w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold transition-all select-none",
-      inMonth ? "" : "opacity-40",
-      disabled ? "text-gray-300 cursor-not-allowed" : "text-gray-800 hover:bg-gray-100",
-      isBetween ? "bg-rose-50" : "",
-      isCheckOut ? "bg-rose-500 text-white" : "",
-      // check-in default selected styling
-      isCheckIn ? "bg-gray-900 text-white" : "",
-      // ✅ extra strong anchor ring when selecting checkout
-      anchorHighlight ? "ring-2 ring-gray-900 ring-offset-2" : "",
-    ].join(" ");
+    // Selecting check-out (checkout field is disabled until checkIn exists, so checkIn should be set)
+    if (!checkIn) {
+      // safety fallback: treat as check-in
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    // If user taps a date <= check-in, treat it as a new check-in and close
+    if (dateStr <= checkIn) {
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    const res = validateRange(checkIn, dateStr);
+    if (!res.ok) {
+      // same behavior as desktop: treat as new check-in and close
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    // Valid checkout selected: set and close immediately
+    setCheckOut(dateStr);
+    setStatus({ type: "success", message: L.available });
+    setPickerOpen(false);
+  }
+
+  function openPicker(field) {
+    const base =
+      field === "checkout"
+        ? (checkOut || checkIn || ymd(new Date()))
+        : (checkIn || ymd(new Date()));
+
+    setMobileMonth(new Date(base + "T00:00:00Z"));
+
+    if (field === "checkout" && !checkIn) {
+      setActiveField("checkin");
+    } else {
+      setActiveField(field);
+    }
+
+    setPickerOpen(true);
   }
 
   async function submit() {
@@ -506,27 +721,36 @@ export default function BookingWidget({
         pets: { hasPets, count: hasPets ? petsCount : 0 },
         name,
         phone,
+        details: details.trim() || "",
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setSubmitting(false);
 
-    if (!data.ok) {
-      setStatus({ type: "error", message: data.error || "Eroare." });
+    if (!data?.ok) {
+      setStatus({ type: "error", message: data?.error || "Eroare." });
       return;
     }
 
-    setStatus({ type: "success", message: L.sentOk });
+    setSuccessModal({
+      bookingId: data.bookingId,
+      name: name.trim(),
+      phone: phone.trim(),
+      details: details.trim(),
+      checkIn,
+      checkOut,
+      guests: { adults, children },
+      total,
+      currency: settings.currency || "RON",
+    });
+    setSuccessOpen(true);
+    setStatus({ type: "success", message: "" });
 
-    // Refresh availability for chosen window
-    const from = checkIn;
-    const to = addDays(checkOut, 1);
-    loadCalendar(from, to);
+    await loadCalendar(checkIn, addDays(checkOut, 1));
   }
 
   const showDesktopCalendar = !(isMobile && mobileMode === "date-inputs");
 
-  /** Controls (same) */
   const Controls = (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -566,19 +790,41 @@ export default function BookingWidget({
         ) : null}
       </div>
 
+      {/* Contact */}
       <div className="grid gap-3">
-        <input
-          className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-rose-200"
-          placeholder={L.name}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-rose-200"
-          placeholder={L.phone}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
+        <div className="relative">
+          <input
+            className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-rose-200"
+            placeholder={L.name}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+            {L.required}
+          </span>
+        </div>
+
+        <div className="relative">
+          <input
+            className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-rose-200"
+            placeholder={L.phone}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+            {L.required}
+          </span>
+        </div>
+
+        <div className="relative">
+          <textarea
+            rows={3}
+            className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-rose-200 resize-none"
+            placeholder={`${L.details} • ${L.optional}`}
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+          />
+        </div>
       </div>
 
       <button
@@ -613,131 +859,7 @@ export default function BookingWidget({
     </div>
   );
 
-  /** ✅ Mobile date boxes (click anywhere opens; checkout disabled until checkin) */
-  const MobileDateBoxes = (
-    <div className="grid grid-cols-2 gap-3">
-      <button
-        type="button"
-        onClick={() => openMobileCalendar("checkIn")}
-        className="w-full text-left rounded-2xl border border-gray-200 bg-white px-4 py-3 hover:bg-gray-50 transition-all"
-      >
-        <div className="text-[11px] uppercase tracking-wide text-gray-500">{L.checkIn}</div>
-        <div className="mt-1 font-semibold text-gray-900">
-          {checkIn ? formatDatePretty(checkIn, lang) : "—"}
-        </div>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => openMobileCalendar("checkOut")}
-        disabled={!canOpenCheckout}
-        className={[
-          "w-full text-left rounded-2xl border px-4 py-3 transition-all",
-          canOpenCheckout
-            ? "border-gray-200 bg-white hover:bg-gray-50"
-            : "border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed",
-        ].join(" ")}
-      >
-        <div className="text-[11px] uppercase tracking-wide text-gray-500">{L.checkOut}</div>
-        <div className="mt-1 font-semibold">
-          {checkOut ? formatDatePretty(checkOut, lang) : canOpenCheckout ? "—" : L.pickCheckInFirst}
-        </div>
-      </button>
-    </div>
-  );
-
-  /** ✅ Mobile calendar modal (check-in anchor highlighted while choosing checkout) */
-  const MobileCalendarModal = mobileCalOpen ? (
-    <div className="fixed inset-0 z-[70]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={closeMobileCalendar}
-        aria-label="Close calendar"
-      />
-      <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-2xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-gray-900">
-            {activeMobileField === "checkIn" ? L.selectCheckIn : L.selectCheckOut}
-          </div>
-          <button
-            type="button"
-            onClick={closeMobileCalendar}
-            className="px-3 py-1.5 rounded-full text-sm font-semibold bg-gray-100 hover:bg-gray-200"
-          >
-            {L.close}
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between mb-3">
-          <button
-            type="button"
-            className="px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 font-semibold"
-            onClick={() => setMobileMonth((m) => addMonths(m, -1))}
-          >
-            {L.back}
-          </button>
-          <div className="font-bold text-zinc-900 capitalize">{monthLabel(mobileMonth, lang)}</div>
-          <button
-            type="button"
-            className="px-3 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 font-semibold"
-            onClick={() => setMobileMonth((m) => addMonths(m, 1))}
-          >
-            {L.next}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 text-xs text-gray-600 mb-2">
-          {L.weekdays.map((d) => (
-            <div key={d} className="text-center py-1">
-              {d}
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1 pb-2">
-          {mobileGrid.cells.map((d) => {
-            const inMonth = d.getMonth() === mobileMonth.getMonth();
-            const dateStr = ymd(d);
-            const info = dayInfo(dateStr);
-            const unavailable = !info.isAvailable;
-
-            const invalidCheckoutPick =
-              activeMobileField === "checkOut" && checkIn && dateStr <= checkIn;
-
-            const disabled = unavailable || invalidCheckoutPick;
-
-            return (
-              <button
-                key={dateStr}
-                type="button"
-                disabled={disabled}
-                onClick={() => !disabled && pickDateMobile(dateStr)}
-                className={getMobileDayBtnClass(d, inMonth, unavailable)}
-                aria-label={dateStr}
-              >
-                {d.getDate()}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* small helper line showing selection */}
-        <div className="mt-2 text-sm text-gray-600 flex items-center justify-between">
-          <span className="font-semibold text-gray-900">
-            {checkIn ? formatDatePretty(checkIn, lang) : "—"}
-          </span>
-          <span>→</span>
-          <span className="font-semibold text-gray-900">
-            {checkOut ? formatDatePretty(checkOut, lang) : "—"}
-          </span>
-        </div>
-      </div>
-    </div>
-  ) : null;
-
-  /** Desktop date display boxes */
-  const DesktopDateBoxes = (
+  const DateInputs = (
     <div className="flex flex-col sm:flex-row gap-3">
       <FieldBox
         label={L.checkIn}
@@ -747,7 +869,14 @@ export default function BookingWidget({
           setCheckOut("");
           setStatus({ type: "", message: "" });
         }}
-      />
+        onClick={isMobile && mobileMode === "date-inputs" ? () => openPicker("checkin") : undefined}
+        disabled={false}
+      >
+        {isMobile && mobileMode === "date-inputs" ? (
+          <div className="text-sm text-gray-500">{L.pickDates}</div>
+        ) : null}
+      </FieldBox>
+
       <FieldBox
         label={L.checkOut}
         value={checkOut}
@@ -755,11 +884,16 @@ export default function BookingWidget({
           setCheckOut("");
           setStatus({ type: "", message: "" });
         }}
-      />
+        onClick={isMobile && mobileMode === "date-inputs" ? () => openPicker("checkout") : undefined}
+        disabled={isMobile && mobileMode === "date-inputs" ? !checkIn : false}
+      >
+        {isMobile && mobileMode === "date-inputs" ? (
+          <div className="text-sm text-gray-500">{checkIn ? L.pickDates : L.selectDates}</div>
+        ) : null}
+      </FieldBox>
     </div>
   );
 
-  /** Desktop calendar */
   const Calendar = (
     <div className="rounded-3xl border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between px-4 sm:px-6 py-4">
@@ -810,14 +944,32 @@ export default function BookingWidget({
               onClick={() => pickDateDesktop(dateStr)}
               disabled={unavailable}
               className={[
-                "rounded-2xl border p-2 sm:p-3 text-left transition-all",
+                "relative overflow-hidden rounded-2xl border p-2 sm:p-3 text-left transition-all",
                 inMonth ? "border-gray-200" : "border-gray-100 opacity-50",
-                unavailable ? "bg-gray-50 opacity-40 cursor-not-allowed" : "hover:bg-gray-50",
+                unavailable ? "bg-gray-50 opacity-50 cursor-not-allowed" : "hover:bg-gray-50",
                 selected ? "ring-2 ring-rose-200 bg-rose-50" : "",
               ].join(" ")}
             >
-              <div className="text-sm sm:text-base font-semibold text-zinc-900">{d.getDate()}</div>
-              <div className="text-[11px] text-gray-600 mt-1">{formatRON(info.price)} lei</div>
+              {/* hatch overlay for unavailable */}
+              {unavailable ? (
+                <span
+                  aria-hidden="true"
+                  className={[
+                    "pointer-events-none absolute inset-0",
+                    // light theme hatch (darker lines)
+                    "bg-[repeating-linear-gradient(135deg,rgba(80,80,80,0.30)_0,rgba(80,80,80,0.30)_7px,transparent_7px,transparent_14px)]",
+                    // dark theme hatch (lighter lines, more visible)
+                    "dark:bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.35)_0,rgba(255,255,255,0.35)_7px,transparent_7px,transparent_14px)]",
+                  ].join(" ")}
+                />
+              ) : null}
+
+              <div className="relative z-10 text-sm sm:text-base font-semibold text-zinc-900">
+                {d.getDate()}
+              </div>
+              <div className="relative z-10 text-[11px] text-gray-600 mt-1">
+                {formatRON(info.price)} lei
+              </div>
             </button>
           );
         })}
@@ -825,35 +977,186 @@ export default function BookingWidget({
     </div>
   );
 
-  // ✅ MOBILE date-inputs mode now uses our own modal calendar (not <input type="date">)
+  // Mobile date-input mode (fields + controls only)
   if (isMobile && mobileMode === "date-inputs") {
     return (
-      <div className="space-y-5">
-        {MobileDateBoxes}
-        {MobileCalendarModal}
-        {Controls}
-      </div>
+      <>
+        <div className="space-y-5">
+          {DateInputs}
+          {Controls}
+        </div>
+
+        <MobileDateRangeModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          lang={lang}
+          L={L}
+          month={mobileMonth}
+          setMonth={setMobileMonth}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          activeField={activeField}
+          setActiveField={setActiveField}
+          dayInfo={dayInfo}
+          pickDate={pickDateMobile}
+        />
+
+        {/* ✅ Success Modal */}
+        {successOpen && successModal ? (
+          <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center px-4">
+            <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl relative">
+              <button
+                onClick={() => setSuccessOpen(false)}
+                className="absolute right-4 top-4 text-gray-400 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-10 h-10 text-green-700" />
+                <div>
+                  <div className="text-xl font-bold text-zinc-900">{L.sentOkTitle}</div>
+                  <div className="text-gray-600">{L.sentOkBody}</div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Dates</div>
+                  <div className="font-semibold text-zinc-900">
+                    {successModal.checkIn} → {successModal.checkOut}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Name</div>
+                    <div className="font-semibold text-zinc-900">{successModal.name}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Phone</div>
+                    <div className="font-semibold text-zinc-900">{successModal.phone}</div>
+                  </div>
+                </div>
+
+                {successModal.details ? (
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Details</div>
+                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">
+                      {successModal.details}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="text-sm text-green-900 font-semibold">Total</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {formatRON(successModal.total)}{" "}
+                    {(successModal.currency || "RON") === "RON" ? "lei" : successModal.currency}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSuccessOpen(false)}
+                  className="w-full mt-1 px-4 py-3 rounded-2xl bg-gray-900 hover:bg-black text-white font-semibold transition-all"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 
-  // Desktop & non-mobile: split
+  // Desktop split
   if (layout === "split") {
     return (
-      <div className="space-y-5">
-        {DesktopDateBoxes}
+      <>
+        <div className="space-y-5">
+          {DateInputs}
 
-        <div className="grid lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2">{showDesktopCalendar ? Calendar : null}</div>
-          <div className="lg:col-span-1">{Controls}</div>
+          <div className="grid lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2">{showDesktopCalendar ? Calendar : null}</div>
+            <div className="lg:col-span-1">{Controls}</div>
+          </div>
         </div>
-      </div>
+
+        {/* ✅ Success Modal on desktop too */}
+        {successOpen && successModal ? (
+          <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center px-4">
+            <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl relative">
+              <button
+                onClick={() => setSuccessOpen(false)}
+                className="absolute right-4 top-4 text-gray-400 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-10 h-10 text-green-700" />
+                <div>
+                  <div className="text-xl font-bold text-zinc-900">{L.sentOkTitle}</div>
+                  <div className="text-gray-600">{L.sentOkBody}</div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3">
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Dates</div>
+                  <div className="font-semibold text-zinc-900">
+                    {successModal.checkIn} → {successModal.checkOut}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Name</div>
+                    <div className="font-semibold text-zinc-900">{successModal.name}</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Phone</div>
+                    <div className="font-semibold text-zinc-900">{successModal.phone}</div>
+                  </div>
+                </div>
+
+                {successModal.details ? (
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <div className="text-xs font-semibold text-gray-600 mb-1">Details</div>
+                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">
+                      {successModal.details}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center justify-between">
+                  <div className="text-sm text-green-900 font-semibold">Total</div>
+                  <div className="text-lg font-bold text-green-900">
+                    {formatRON(successModal.total)}{" "}
+                    {(successModal.currency || "RON") === "RON" ? "lei" : successModal.currency}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSuccessOpen(false)}
+                  className="w-full mt-1 px-4 py-3 rounded-2xl bg-gray-900 hover:bg-black text-white font-semibold transition-all"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </>
     );
   }
 
-  // Fallback stacked
   return (
     <div className="space-y-5">
-      {DesktopDateBoxes}
+      {DateInputs}
       {showDesktopCalendar ? Calendar : null}
       {Controls}
     </div>

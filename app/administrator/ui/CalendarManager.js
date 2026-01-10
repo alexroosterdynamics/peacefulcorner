@@ -1,7 +1,8 @@
-
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+
+/** ---------- helpers ---------- */
 
 function guestLine(b) {
   const a = Number(b?.guests?.adults || 0);
@@ -12,9 +13,7 @@ function guestLine(b) {
   const parts = [];
   parts.push(`Adults ${a}`);
   parts.push(`Children ${c}`);
-
   if (hasPets) parts.push(`Pets ${petsCount > 0 ? petsCount : 1}`);
-
   return parts.join(" • ");
 }
 
@@ -53,6 +52,7 @@ function daysGrid(monthDate) {
   const start = startOfMonth(monthDate);
   const end = endOfMonth(monthDate);
 
+  // Monday as first day
   const startDow = (start.getDay() + 6) % 7;
   const gridStart = new Date(start);
   gridStart.setDate(start.getDate() - startDow);
@@ -76,6 +76,29 @@ function truncateName(name) {
   return name.length > 13 ? name.slice(0, 13) + "…" : name;
 }
 
+function Spinner({ className = "h-4 w-4" }) {
+  return (
+    <span
+      className={[
+        "inline-block rounded-full border-2 border-current border-t-transparent animate-spin",
+        className,
+      ].join(" ")}
+      aria-hidden="true"
+    />
+  );
+}
+
+function BtnInner({ loading, children }) {
+  return (
+    <span className="inline-flex items-center justify-center gap-2">
+      {loading ? <Spinner className="h-4 w-4" /> : null}
+      <span className={loading ? "opacity-90" : ""}>{children}</span>
+    </span>
+  );
+}
+
+/** ---------- component ---------- */
+
 export default function CalendarManager() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [month, setMonth] = useState(() => new Date());
@@ -92,12 +115,32 @@ export default function CalendarManager() {
   const [isTouching, setIsTouching] = useState(false);
 
   const [bulkPrice, setBulkPrice] = useState("");
-  const [bulkSaving, setBulkSaving] = useState(false);
+  const [basePriceInput, setBasePriceInput] = useState("");
 
   const [dayModal, setDayModal] = useState(null);
 
   const [createBookingModal, setCreateBookingModal] = useState(false);
-  const [bookingForm, setBookingForm] = useState({ name: "", phone: "", people: 1, pets: 0 });
+  const [bookingForm, setBookingForm] = useState({
+    name: "",
+    phone: "",
+    people: 1,
+    pets: 0,
+  });
+
+  // single global action lock to prevent double-click + concurrent requests
+  const [actionKey, setActionKey] = useState(null);
+  const isBusy = Boolean(actionKey) || loading || Boolean(confirmModal?.isLoading);
+  const isAction = (k) => actionKey === k;
+
+  async function runAction(key, fn) {
+    if (isBusy) return;
+    setActionKey(key);
+    try {
+      await fn();
+    } finally {
+      setActionKey(null);
+    }
+  }
 
   const grid = useMemo(() => daysGrid(month), [month]);
 
@@ -106,24 +149,29 @@ export default function CalendarManager() {
     const from = ymd(grid.cells[0]);
     const to = ymd(grid.cells[41]);
 
-    const res = await fetch(`/api/calendar?from=${from}&to=${to}`, { cache: "no-store" });
-    const data = await res.json();
+    try {
+      const res = await fetch(`/api/calendar?from=${from}&to=${to}`, { cache: "no-store" });
+      const data = await res.json();
 
-    if (data.ok) {
-      setSettings(data.settings || { basePrice: 220, currency: "RON" });
+      if (data.ok) {
+        setSettings(data.settings || { basePrice: 220, currency: "RON" });
 
-      const m = new Map();
-      for (const d of data.days || []) m.set(d.date, d);
-      setDaysMap(m);
+        const m = new Map();
+        for (const d of data.days || []) m.set(d.date, d);
+        setDaysMap(m);
 
-      setBlockedSet(new Set((data.blockedDates || []).map(String)));
+        setBlockedSet(new Set((data.blockedDates || []).map(String)));
 
-      const bm = new Map();
-      for (const b of data.bookings || []) bm.set(String(b.id), b);
-      setBookingsMap(bm);
+        const bm = new Map();
+        for (const b of data.bookings || []) bm.set(String(b.id), b);
+        setBookingsMap(bm);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to load calendar");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -139,8 +187,11 @@ export default function CalendarManager() {
     return hasApproved || hasPending;
   }
 
-  // Mouse handlers
+  /** ---------- selection handlers ---------- */
+
+  // Mouse
   function handleMouseDown(dateStr, e) {
+    if (isBusy) return;
     if (isLockedDay(dateStr)) return;
     e.preventDefault();
     setIsDragging(true);
@@ -153,9 +204,9 @@ export default function CalendarManager() {
     if (!isDragging) return;
     if (isLockedDay(dateStr)) return;
     setSelectedDates((prev) => {
-      const newSet = new Set(prev);
-      newSet.add(dateStr);
-      return newSet;
+      const next = new Set(prev);
+      next.add(dateStr);
+      return next;
     });
   }
 
@@ -163,16 +214,13 @@ export default function CalendarManager() {
     setIsDragging(false);
   }
 
-  // Touch handlers for mobile
+  // Touch
   function handleTouchStart(dateStr, e) {
+    if (isBusy) return;
     if (isLockedDay(dateStr)) return;
-    
-    // Single tap to deselect all
+
     if (!isTouching) {
-      setSelectedDates(new Set());
       setIsTouching(true);
-      
-      // Start new selection with this date
       const newSelected = new Set();
       newSelected.add(dateStr);
       setSelectedDates(newSelected);
@@ -181,21 +229,19 @@ export default function CalendarManager() {
 
   function handleTouchMove(e) {
     if (!isTouching) return;
-    
-    // Prevent scrolling while selecting
+    if (isBusy) return;
+
     e.preventDefault();
-    
-    // Get the element under the touch point
     const touch = e.touches[0];
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    
+
     if (element && element.dataset.date) {
       const dateStr = element.dataset.date;
       if (!isLockedDay(dateStr)) {
         setSelectedDates((prev) => {
-          const newSet = new Set(prev);
-          newSet.add(dateStr);
-          return newSet;
+          const next = new Set(prev);
+          next.add(dateStr);
+          return next;
         });
       }
     }
@@ -223,167 +269,228 @@ export default function CalendarManager() {
     }
   }, [isTouching]);
 
+  /** ---------- modals ---------- */
+
   function openDayModal(dateStr) {
     const day = daysMap.get(dateStr);
     if (!day) return;
 
     const booked = day.booked?.id ? bookingsMap.get(day.booked.id) || day.booked : null;
-
-    const pending = (day.pendingIds || [])
-      .map((id) => bookingsMap.get(id))
-      .filter(Boolean);
+    const pending = (day.pendingIds || []).map((id) => bookingsMap.get(id)).filter(Boolean);
 
     if (!booked && (!pending || pending.length === 0)) return;
-
     setDayModal({ date: dateStr, booked, pending });
   }
 
-  async function bulkBlock() {
-    if (selectedDates.size === 0 || bulkSaving) return;
-    setBulkSaving(true);
-
-    const dates = Array.from(selectedDates);
-
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bulk: true, dates, isAvailable: false }),
+  function openConfirm({ title, message, confirmText, danger = false, onConfirm }) {
+    setConfirmModal({
+      title,
+      message,
+      confirmText,
+      danger,
+      onConfirm,
+      isLoading: false,
     });
-    const data = await res.json();
-    if (data.ok) {
+  }
+
+  /** ---------- actions (all locked + spinners) ---------- */
+
+  const hasSelection = selectedDates.size > 0;
+
+  async function bulkBlock() {
+    if (!hasSelection) return;
+    await runAction("bulkBlock", async () => {
+      const dates = Array.from(selectedDates);
+      const res = await fetch("/api/admin/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bulk: true, dates, isAvailable: false }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error || "Failed to block dates");
+        return;
+      }
       setSelectedDates(new Set());
       await load();
-    }
-    setBulkSaving(false);
+    });
   }
 
   async function bulkUnblock() {
-    if (selectedDates.size === 0 || bulkSaving) return;
-    setBulkSaving(true);
-
-    const dates = Array.from(selectedDates);
-
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bulk: true, dates, isAvailable: true }),
-    });
-    const data = await res.json();
-    if (data.ok) {
+    if (!hasSelection) return;
+    await runAction("bulkUnblock", async () => {
+      const dates = Array.from(selectedDates);
+      const res = await fetch("/api/admin/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bulk: true, dates, isAvailable: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error || "Failed to unblock dates");
+        return;
+      }
       setSelectedDates(new Set());
       await load();
-    }
-    setBulkSaving(false);
+    });
   }
 
   async function bulkSetPrice() {
-    if (selectedDates.size === 0 || !bulkPrice || bulkSaving) return;
+    if (!hasSelection || !bulkPrice) return;
     const price = parseFloat(bulkPrice);
     if (Number.isNaN(price)) return;
 
-    setBulkSaving(true);
-    const dates = Array.from(selectedDates);
-
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bulk: true, dates, price }),
-    });
-    const data = await res.json();
-    if (data.ok) {
+    await runAction("bulkSetPrice", async () => {
+      const dates = Array.from(selectedDates);
+      const res = await fetch("/api/admin/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bulk: true, dates, price }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error || "Failed to set price");
+        return;
+      }
       setSelectedDates(new Set());
       setBulkPrice("");
       await load();
-    }
-    setBulkSaving(false);
+    });
+  }
+
+  function saveBasePrice() {
+    const price = parseFloat(basePriceInput);
+    if (Number.isNaN(price) || price <= 0) return;
+
+    openConfirm({
+      title: "Change base price?",
+      message: `This will set base price to ${formatRON(price)} ${
+        settings.currency === "RON" ? "lei" : settings.currency
+      }. Days without overrides will use it.`,
+      confirmText: "Update base price",
+      danger: false,
+      onConfirm: async () => {
+        await runAction("saveBasePrice", async () => {
+          const res = await fetch("/api/admin/day", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ setBasePrice: price }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            alert(data.error || "Failed to update base price");
+            return;
+          }
+          setBasePriceInput("");
+          await load();
+        });
+      },
+    });
+  }
+
+  function resetAllOverridesToBase() {
+    openConfirm({
+      title: "Reset ALL overrides?",
+      message: "This will remove ALL overrides. Every day will fall back to the base price. This cannot be undone.",
+      confirmText: "Reset overrides",
+      danger: true,
+      onConfirm: async () => {
+        await runAction("resetOverrides", async () => {
+          const res = await fetch("/api/admin/day", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clearAllOverrides: true }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            alert(data.error || "Failed to reset overrides");
+            return;
+          }
+          await load();
+        });
+      },
+    });
   }
 
   async function approveBooking(id) {
-    setBulkSaving(true);
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ approveBookingId: id }),
+    await runAction(`approve:${id}`, async () => {
+      const res = await fetch("/api/admin/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approveBookingId: id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error || "Approve failed");
+        return;
+      }
+      setDayModal(null);
+      await load();
     });
-    const data = await res.json();
-    setBulkSaving(false);
-    if (!data.ok) {
-      alert(data.error || "Approve failed");
-      return;
-    }
-    setDayModal(null);
-    await load();
   }
 
-  async function deleteBooking(id) {
-    setConfirmModal({
+  function deleteBooking(id) {
+    openConfirm({
       title: "Delete booking?",
       message: "This will permanently delete this booking request/booking. This cannot be undone.",
       confirmText: "Delete",
       danger: true,
       onConfirm: async () => {
-        setBulkSaving(true);
-        try {
+        await runAction(`delete:${id}`, async () => {
           const res = await fetch("/api/admin/day", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ deleteBookingId: id }),
           });
-
           const data = await res.json().catch(() => ({}));
-
           if (!res.ok || !data.ok) {
             console.error("Delete failed", data);
+            alert(data.error || "Delete failed");
             return;
           }
-
           setDayModal(null);
           await load();
-        } finally {
-          setBulkSaving(false);
-        }
+        });
       },
     });
   }
 
   async function handleSaveManualBooking(e) {
     e.preventDefault();
-    if (selectedDates.size === 0 || bulkSaving) return;
+    if (!hasSelection) return;
 
-    setBulkSaving(true);
+    await runAction("createManualBooking", async () => {
+      const dates = Array.from(selectedDates);
 
-    const dates = Array.from(selectedDates);
+      const res = await fetch("/api/admin/day", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          createBooking: true,
+          dates,
+          booking: {
+            name: bookingForm.name,
+            phone: bookingForm.phone,
+            people: bookingForm.people,
+            pets: bookingForm.pets,
+          },
+        }),
+      });
 
-    const res = await fetch("/api/admin/day", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        createBooking: true,
-        dates,
-        booking: {
-          name: bookingForm.name,
-          phone: bookingForm.phone,
-          people: bookingForm.people,
-          pets: bookingForm.pets,
-        },
-      }),
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error || "Failed to create booking");
+        return;
+      }
+
+      setSelectedDates(new Set());
+      setCreateBookingModal(false);
+      setBookingForm({ name: "", phone: "", people: 1, pets: 0 });
+      await load();
     });
-
-    const data = await res.json();
-    setBulkSaving(false);
-
-    if (!data.ok) {
-      alert(data.error || "Failed to create booking");
-      return;
-    }
-
-    setSelectedDates(new Set());
-    setCreateBookingModal(false);
-    setBookingForm({ name: "", phone: "", people: 1, pets: 0 });
-    await load();
   }
 
-  const hasSelection = selectedDates.size > 0;
+  /** ---------- render ---------- */
 
   return (
     <div className="bg-white">
@@ -397,27 +504,27 @@ export default function CalendarManager() {
           <div className="space-y-2">
             <button
               onClick={() => setCreateBookingModal(true)}
-              disabled={!hasSelection || bulkSaving}
+              disabled={!hasSelection || isBusy}
               className="w-full px-4 py-2.5 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
             >
-              Create Booking
+              <BtnInner loading={isAction("createManualBooking")}>Create Booking</BtnInner>
             </button>
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={bulkBlock}
-                disabled={!hasSelection || bulkSaving}
+                disabled={!hasSelection || isBusy}
                 className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
               >
-                Block
+                <BtnInner loading={isAction("bulkBlock")}>Block</BtnInner>
               </button>
 
               <button
                 onClick={bulkUnblock}
-                disabled={!hasSelection || bulkSaving}
+                disabled={!hasSelection || isBusy}
                 className="px-4 py-2.5 rounded-xl bg-white border-2 border-gray-200 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold transition-all text-sm"
               >
-                Unblock
+                <BtnInner loading={isAction("bulkUnblock")}>Unblock</BtnInner>
               </button>
             </div>
 
@@ -431,18 +538,60 @@ export default function CalendarManager() {
                   placeholder={String(settings.basePrice || 220)}
                   value={bulkPrice}
                   onChange={(e) => setBulkPrice(e.target.value)}
-                  disabled={!hasSelection || bulkSaving}
+                  disabled={!hasSelection || isBusy}
                   className="flex-1 border-2 border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-rose-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
                   inputMode="numeric"
                 />
                 <button
                   onClick={bulkSetPrice}
-                  disabled={!hasSelection || !bulkPrice || bulkSaving}
+                  disabled={!hasSelection || !bulkPrice || isBusy}
                   className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
                 >
-                  Set
+                  <BtnInner loading={isAction("bulkSetPrice")}>Set</BtnInner>
                 </button>
               </div>
+            </div>
+
+            {/* Mobile base price controls */}
+            <div className="pt-4 border-t border-gray-200 space-y-2">
+              <div className="text-sm font-semibold text-zinc-900">Base price</div>
+              <div className="text-xs text-gray-600">
+                Current:{" "}
+                <span className="font-semibold">
+                  {formatRON(settings.basePrice)} {settings.currency === "RON" ? "lei" : settings.currency}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder={String(settings.basePrice || 220)}
+                  value={basePriceInput}
+                  onChange={(e) => setBasePriceInput(e.target.value)}
+                  disabled={isBusy}
+                  className="flex-1 border-2 border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-green-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                  inputMode="numeric"
+                />
+                <button
+                  type="button"
+                  onClick={saveBasePrice}
+                  disabled={!basePriceInput || isBusy}
+                  className="px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
+                >
+                  <BtnInner loading={isAction("saveBasePrice")}>Save</BtnInner>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={resetAllOverridesToBase}
+                disabled={isBusy}
+                className="w-full mt-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
+              >
+                <BtnInner loading={isAction("resetOverrides")}>Reset all overrides to base</BtnInner>
+              </button>
+
+              <div className="text-xs text-gray-500">“Reset” removes ALL overrides so days stop being overrides.</div>
             </div>
           </div>
         </div>
@@ -454,13 +603,15 @@ export default function CalendarManager() {
             <div className="text-xl sm:text-2xl font-bold text-zinc-900">{monthLabel(month)}</div>
             <div className="flex gap-2">
               <button
-                className="px-3 sm:px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium"
+                className="px-3 sm:px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isBusy}
                 onClick={() => setMonth((m) => addMonths(m, -1))}
               >
                 Prev
               </button>
               <button
-                className="px-3 sm:px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium"
+                className="px-3 sm:px-4 py-2 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors text-sm sm:text-base font-medium disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={isBusy}
                 onClick={() => setMonth((m) => addMonths(m, 1))}
               >
                 Next
@@ -476,8 +627,8 @@ export default function CalendarManager() {
             ))}
           </div>
 
-          <div 
-            className="grid grid-cols-7 gap-1 sm:gap-2" 
+          <div
+            className="grid grid-cols-7 gap-1 sm:gap-2"
             onMouseLeave={() => setIsDragging(false)}
             onTouchMove={handleTouchMove}
           >
@@ -505,21 +656,21 @@ export default function CalendarManager() {
                 hasApproved
                   ? "border-green-700 bg-green-700 text-white hover:bg-green-600"
                   : hasPending
-                    ? "border-yellow-400 bg-yellow-300 text-zinc-900 hover:bg-yellow-200"
-                    : isSelected
-                      ? "border-rose-400 bg-rose-100"
-                      : isBlocked
-                        ? "border-zinc-900 bg-zinc-900 text-white"
-                        : "border-gray-200 bg-white hover:bg-gray-50",
+                  ? "border-yellow-400 bg-yellow-300 text-zinc-900 hover:bg-yellow-200"
+                  : isSelected
+                  ? "border-rose-400 bg-rose-100"
+                  : isBlocked
+                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  : "border-gray-200 bg-white hover:bg-gray-50",
               ].join(" ");
 
               const label = hasApproved
                 ? truncateName(day?.booked?.name || "Booked")
                 : hasPending
-                  ? pendingCount > 1
-                    ? `Pending (${pendingCount})`
-                    : "Pending"
-                  : `${formatRON(price)} ${settings.currency === "RON" ? "lei" : settings.currency}`;
+                ? pendingCount > 1
+                  ? `Pending (${pendingCount})`
+                  : "Pending"
+                : `${formatRON(price)} ${settings.currency === "RON" ? "lei" : settings.currency}`;
 
               return (
                 <div
@@ -550,10 +701,10 @@ export default function CalendarManager() {
                       hasApproved
                         ? "text-green-100 font-medium"
                         : hasPending
-                          ? "text-zinc-800 font-semibold"
-                          : isBlocked
-                            ? "text-gray-300"
-                            : "text-gray-600",
+                        ? "text-zinc-800 font-semibold"
+                        : isBlocked
+                        ? "text-gray-300"
+                        : "text-gray-600",
                     ].join(" ")}
                   >
                     {label}
@@ -563,11 +714,11 @@ export default function CalendarManager() {
             })}
           </div>
 
-          {loading || bulkSaving ? (
-            <div className="text-sm text-gray-500 mt-4">{bulkSaving ? "Saving..." : "Loading…"}</div>
-          ) : null}
+          {loading ? <div className="text-sm text-gray-500 mt-4">Loading…</div> : null}
+          {actionKey ? <div className="text-sm text-gray-500 mt-2">Saving…</div> : null}
         </div>
 
+        {/* Desktop sidebar */}
         <div className="hidden lg:block w-80 border-l border-gray-200 p-6 space-y-4">
           <div className="bg-gray-50 rounded-2xl p-4">
             <div className="text-sm font-semibold text-zinc-900 mb-3">
@@ -577,26 +728,26 @@ export default function CalendarManager() {
             <div className="space-y-2">
               <button
                 onClick={() => setCreateBookingModal(true)}
-                disabled={!hasSelection || bulkSaving}
+                disabled={!hasSelection || isBusy}
                 className="w-full px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all mb-4"
               >
-                Create Booking (Approved)
+                <BtnInner loading={isAction("createManualBooking")}>Create Booking (Approved)</BtnInner>
               </button>
 
               <button
                 onClick={bulkBlock}
-                disabled={!hasSelection || bulkSaving}
+                disabled={!hasSelection || isBusy}
                 className="w-full px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all"
               >
-                Block
+                <BtnInner loading={isAction("bulkBlock")}>Block</BtnInner>
               </button>
 
               <button
                 onClick={bulkUnblock}
-                disabled={!hasSelection || bulkSaving}
+                disabled={!hasSelection || isBusy}
                 className="w-full px-4 py-2 rounded-xl bg-white border-2 border-gray-200 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold transition-all"
               >
-                Unblock
+                <BtnInner loading={isAction("bulkUnblock")}>Unblock</BtnInner>
               </button>
 
               <div className="pt-2 border-t border-gray-200">
@@ -608,21 +759,63 @@ export default function CalendarManager() {
                   placeholder={String(settings.basePrice || 220)}
                   value={bulkPrice}
                   onChange={(e) => setBulkPrice(e.target.value)}
-                  disabled={!hasSelection || bulkSaving}
+                  disabled={!hasSelection || isBusy}
                   className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-rose-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
                   inputMode="numeric"
                 />
                 <button
                   onClick={bulkSetPrice}
-                  disabled={!hasSelection || !bulkPrice || bulkSaving}
+                  disabled={!hasSelection || !bulkPrice || isBusy}
                   className="w-full mt-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all"
                 >
-                  Set Price
+                  <BtnInner loading={isAction("bulkSetPrice")}>Set Price</BtnInner>
                 </button>
 
                 <div className="text-xs text-gray-500 mt-2">
                   Tip: setting a day back to base price removes it from overrides automatically.
                 </div>
+              </div>
+
+              {/* Desktop base price controls */}
+              <div className="pt-4 border-t border-gray-200 space-y-2">
+                <div className="text-sm font-semibold text-zinc-900">Base price</div>
+                <div className="text-xs text-gray-600">
+                  Current:{" "}
+                  <span className="font-semibold">
+                    {formatRON(settings.basePrice)} {settings.currency === "RON" ? "lei" : settings.currency}
+                  </span>
+                </div>
+
+                <div className="flex w-full gap-2">
+                  <input
+                    type="text"
+                    placeholder={String(settings.basePrice || 220)}
+                    value={basePriceInput}
+                    onChange={(e) => setBasePriceInput(e.target.value)}
+                    disabled={isBusy}
+                    inputMode="numeric"
+                    className="min-w-0 flex-1 border-2 border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-green-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveBasePrice}
+                    disabled={!basePriceInput || isBusy}
+                    className="shrink-0 px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
+                  >
+                    <BtnInner loading={isAction("saveBasePrice")}>Save</BtnInner>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resetAllOverridesToBase}
+                  disabled={isBusy}
+                  className="w-full mt-2 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
+                >
+                  <BtnInner loading={isAction("resetOverrides")}>Reset all overrides to base</BtnInner>
+                </button>
+
+                <div className="text-xs text-gray-500">“Reset” removes ALL overrides so days stop being overrides.</div>
               </div>
             </div>
           </div>
@@ -632,8 +825,13 @@ export default function CalendarManager() {
       {/* Confirmation Modal */}
       {confirmModal ? (
         <div
-          className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center px-4"
-          onClick={() => setConfirmModal(null)}
+          className={[
+            "fixed inset-0 z-[80] bg-black/50 flex items-center justify-center px-4",
+            confirmModal.isLoading ? "cursor-not-allowed" : "",
+          ].join(" ")}
+          onClick={() => {
+            if (!confirmModal.isLoading) setConfirmModal(null);
+          }}
         >
           <div
             className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6"
@@ -646,9 +844,12 @@ export default function CalendarManager() {
               </div>
               <button
                 type="button"
-                onClick={() => setConfirmModal(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                onClick={() => {
+                  if (!confirmModal.isLoading) setConfirmModal(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none disabled:opacity-60"
                 aria-label="Close"
+                disabled={confirmModal.isLoading}
               >
                 ×
               </button>
@@ -658,25 +859,30 @@ export default function CalendarManager() {
               <button
                 type="button"
                 onClick={() => setConfirmModal(null)}
-                className="flex-1 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold transition-all"
+                disabled={confirmModal.isLoading}
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
 
               <button
                 type="button"
-                disabled={bulkSaving}
+                disabled={confirmModal.isLoading}
                 onClick={async () => {
-                  const fn = confirmModal.onConfirm;
-                  setConfirmModal(null);
-                  await fn?.();
+                  // keep modal open + show spinner while confirming
+                  setConfirmModal((m) => (m ? { ...m, isLoading: true } : m));
+                  try {
+                    await confirmModal.onConfirm?.();
+                  } finally {
+                    setConfirmModal(null);
+                  }
                 }}
                 className={[
-                  "flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-white disabled:opacity-60",
+                  "flex-1 px-4 py-3 rounded-xl font-semibold transition-all text-white disabled:opacity-60 disabled:cursor-not-allowed",
                   confirmModal.danger ? "bg-rose-500 hover:bg-rose-600" : "bg-zinc-900 hover:bg-black",
                 ].join(" ")}
               >
-                {bulkSaving ? "Working..." : confirmModal.confirmText || "Confirm"}
+                <BtnInner loading={confirmModal.isLoading}>{confirmModal.confirmText || "Confirm"}</BtnInner>
               </button>
             </div>
           </div>
@@ -687,7 +893,9 @@ export default function CalendarManager() {
       {dayModal ? (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-          onClick={() => setDayModal(null)}
+          onClick={() => {
+            if (!isBusy) setDayModal(null);
+          }}
         >
           <div
             className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
@@ -696,8 +904,11 @@ export default function CalendarManager() {
             <div className="flex items-center justify-between mb-4">
               <div className="text-xl font-bold text-zinc-900">Day: {dayModal.date}</div>
               <button
-                onClick={() => setDayModal(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                onClick={() => {
+                  if (!isBusy) setDayModal(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none disabled:opacity-60"
+                disabled={isBusy}
               >
                 ×
               </button>
@@ -712,9 +923,7 @@ export default function CalendarManager() {
                   <div className="text-sm text-gray-700">
                     {dayModal.booked.checkIn} → {dayModal.booked.checkOut}
                   </div>
-                  <div className="text-sm text-gray-700">
-                    {guestLine(dayModal.booked)}
-                  </div>
+                  <div className="text-sm text-gray-700">{guestLine(dayModal.booked)}</div>
 
                   {dayModal.booked.details ? (
                     <div className="text-sm text-gray-700 whitespace-pre-wrap">
@@ -735,9 +944,10 @@ export default function CalendarManager() {
 
                 <button
                   onClick={() => deleteBooking(dayModal.booked.id)}
-                  className="w-full mt-3 px-4 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-all"
+                  disabled={isBusy}
+                  className="w-full mt-3 px-4 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Delete Booking
+                  <BtnInner loading={isAction(`delete:${dayModal.booked.id}`)}>Delete Booking</BtnInner>
                 </button>
               </div>
             ) : null}
@@ -758,9 +968,7 @@ export default function CalendarManager() {
                           <div className="text-sm text-gray-700">
                             {b.checkIn} → {b.checkOut}
                           </div>
-                          <div className="text-sm text-gray-700">
-                            {guestLine(b)}
-                          </div>
+                          <div className="text-sm text-gray-700">{guestLine(b)}</div>
 
                           {b.details ? (
                             <div className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">
@@ -782,15 +990,17 @@ export default function CalendarManager() {
                         <div className="flex flex-col gap-2 shrink-0">
                           <button
                             onClick={() => approveBooking(b.id)}
-                            className="px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white font-semibold transition-all"
+                            disabled={isBusy}
+                            className="px-4 py-2 rounded-xl bg-green-700 hover:bg-green-800 text-white font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            Approve
+                            <BtnInner loading={isAction(`approve:${b.id}`)}>Approve</BtnInner>
                           </button>
                           <button
                             onClick={() => deleteBooking(b.id)}
-                            className="px-4 py-2 rounded-xl bg-white border-2 border-gray-200 hover:bg-gray-50 font-semibold transition-all"
+                            disabled={isBusy}
+                            className="px-4 py-2 rounded-xl bg-white border-2 border-gray-200 hover:bg-gray-50 font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                           >
-                            Delete
+                            <BtnInner loading={isAction(`delete:${b.id}`)}>Delete</BtnInner>
                           </button>
                         </div>
                       </div>
@@ -815,7 +1025,9 @@ export default function CalendarManager() {
       {createBookingModal ? (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-          onClick={() => setCreateBookingModal(false)}
+          onClick={() => {
+            if (!isBusy) setCreateBookingModal(false);
+          }}
         >
           <form
             className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4"
@@ -827,7 +1039,8 @@ export default function CalendarManager() {
               <button
                 type="button"
                 onClick={() => setCreateBookingModal(false)}
-                className="text-gray-400 text-2xl"
+                className="text-gray-400 text-2xl disabled:opacity-60"
+                disabled={isBusy}
               >
                 ×
               </button>
@@ -844,7 +1057,8 @@ export default function CalendarManager() {
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Guest Name</label>
                 <input
                   required
-                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
+                  disabled={isBusy}
+                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none disabled:bg-gray-100"
                   value={bookingForm.name}
                   onChange={(e) => setBookingForm({ ...bookingForm, name: e.target.value })}
                 />
@@ -853,7 +1067,8 @@ export default function CalendarManager() {
               <div>
                 <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Phone Number</label>
                 <input
-                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
+                  disabled={isBusy}
+                  className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none disabled:bg-gray-100"
                   value={bookingForm.phone}
                   onChange={(e) => setBookingForm({ ...bookingForm, phone: e.target.value })}
                 />
@@ -865,7 +1080,8 @@ export default function CalendarManager() {
                   <input
                     type="number"
                     min="1"
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
+                    disabled={isBusy}
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none disabled:bg-gray-100"
                     value={bookingForm.people}
                     onChange={(e) => setBookingForm({ ...bookingForm, people: e.target.value })}
                   />
@@ -875,7 +1091,8 @@ export default function CalendarManager() {
                   <input
                     type="number"
                     min="0"
-                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none"
+                    disabled={isBusy}
+                    className="w-full border-2 border-gray-100 rounded-xl px-4 py-2 focus:border-green-600 outline-none disabled:bg-gray-100"
                     value={bookingForm.pets}
                     onChange={(e) => setBookingForm({ ...bookingForm, pets: e.target.value })}
                   />
@@ -887,15 +1104,17 @@ export default function CalendarManager() {
               <button
                 type="button"
                 onClick={() => setCreateBookingModal(false)}
-                className="flex-1 px-4 py-3 rounded-xl bg-gray-100 font-semibold"
+                disabled={isBusy}
+                className="flex-1 px-4 py-3 rounded-xl bg-gray-100 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="flex-1 px-4 py-3 rounded-xl bg-green-700 text-white font-semibold hover:bg-green-800 transition-all"
+                disabled={isBusy}
+                className="flex-1 px-4 py-3 rounded-xl bg-green-700 text-white font-semibold hover:bg-green-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Confirm Booking
+                <BtnInner loading={isAction("createManualBooking")}>Confirm Booking</BtnInner>
               </button>
             </div>
           </form>
@@ -904,6 +1123,3 @@ export default function CalendarManager() {
     </div>
   );
 }
-
-
-

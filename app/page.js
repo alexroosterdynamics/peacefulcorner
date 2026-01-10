@@ -361,9 +361,9 @@ function ModernAirbnbListing() {
           sizes="100vw"
           className="object-cover object-right"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 " />
 
-        <div className="relative z-10 text-white text-center px-6 sm:px-12 max-w-4xl mx-auto">
+        <div className="relative z-10 text-white text-center px-6 sm:px-12 max-w-4xl mx-auto ">
           <div className="flex items-center justify-center gap-2 mb-4">
             <MapPin className="w-5 h-5" />
             <span className="text-sm sm:text-base">{listing.address}</span>
@@ -426,7 +426,7 @@ function ModernAirbnbListing() {
       </section>
 
       {/* Content Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 ">
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-16">
           <div className="lg:col-span-2 space-y-12">
             <div>
@@ -440,7 +440,7 @@ function ModernAirbnbListing() {
               <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">
                 {listing.ui?.offers}
               </h3>
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 gap-4 ">
                 {(listing.highlights || []).map((item, idx) => {
                   const IconComponent = HIGHLIGHT_ICONS[item.iconKey] || Home;
                   return (
@@ -459,8 +459,8 @@ function ModernAirbnbListing() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900">
+            <div >
+              <h3 className="text-2xl sm:text-3xl font-bold mb-6 text-zinc-900 ">
                 {listing.ui?.amenitiesTitle}
               </h3>
               <div className="grid sm:grid-cols-2 gap-4">

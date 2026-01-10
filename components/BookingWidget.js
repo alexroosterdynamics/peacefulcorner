@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle, X } from "lucide-react";
+import { CheckCircle, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 /** Date helpers */
 function ymd(date) {
@@ -108,16 +108,35 @@ function Counter({ label, value, setValue, min = 0, helper }) {
   );
 }
 
-function FieldBox({ label, value, onClear, children }) {
+function FieldBox({ label, value, onClear, onClick, disabled, children }) {
   return (
-    <div className="flex-1 rounded-2xl border border-gray-200 p-4">
+    <div
+      className={[
+        "flex-1 rounded-2xl border border-gray-200 p-4",
+        onClick ? "cursor-pointer select-none" : "",
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50",
+      ].join(" ")}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick && !disabled ? 0 : undefined}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={
+        onClick && !disabled
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onClick?.();
+            }
+          : undefined
+      }
+    >
       <div className="text-xs font-semibold text-gray-600">{label}</div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="font-semibold text-zinc-900">{value || "—"}</div>
         {value ? (
           <button
             type="button"
-            onClick={onClear}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear?.();
+            }}
             className="text-sm text-gray-500 hover:text-gray-900"
           >
             Șterge
@@ -142,7 +161,7 @@ function t(lang) {
     petsCount: "Număr animale",
     name: "Numele tău",
     phone: "Număr de telefon",
-    details: "Detalii (opțional)",
+    details: "Detalii",
     send: "Trimite cererea de rezervare",
     sending: "Se trimite…",
     notCharged: "Nu vei fi taxat(ă) încă.",
@@ -160,6 +179,10 @@ function t(lang) {
     weekdays: ["Lu", "Ma", "Mi", "Jo", "Vi", "Sâ", "Du"],
     required: "Obligatoriu",
     optional: "Opțional",
+    pickerTitle: "Alege datele",
+    pickerHintCheckin: "Alege check-in",
+    pickerHintCheckout: "Alege check-out",
+    done: "Gata",
   };
 
   const en = {
@@ -174,7 +197,7 @@ function t(lang) {
     petsCount: "Number of pets",
     name: "Your name",
     phone: "Phone number",
-    details: "Details (optional)",
+    details: "Details",
     send: "Send booking request",
     sending: "Sending…",
     notCharged: "You will not be charged yet.",
@@ -192,6 +215,10 @@ function t(lang) {
     weekdays: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
     required: "Required",
     optional: "Optional",
+    pickerTitle: "Pick dates",
+    pickerHintCheckin: "Pick check-in",
+    pickerHintCheckout: "Pick check-out",
+    done: "Done",
   };
 
   const it = {
@@ -206,7 +233,7 @@ function t(lang) {
     petsCount: "Numero animali",
     name: "Il tuo nome",
     phone: "Telefono",
-    details: "Dettagli (opzionale)",
+    details: "Dettagli",
     send: "Invia richiesta",
     sending: "Invio…",
     notCharged: "Non verrà addebitato nulla ora.",
@@ -224,11 +251,197 @@ function t(lang) {
     weekdays: ["Lu", "Ma", "Me", "Gi", "Ve", "Sa", "Do"],
     required: "Obbligatorio",
     optional: "Opzionale",
+    pickerTitle: "Scegli date",
+    pickerHintCheckin: "Scegli check-in",
+    pickerHintCheckout: "Scegli check-out",
+    done: "Fatto",
   };
 
   if (lang === "it") return it;
   if (lang === "en") return en;
   return ro;
+}
+
+/**
+ * Mobile “native-like” modal calendar
+ * NOTE: uses `pc-hatch-unavailable` utility class from globals.css
+ */
+function MobileDateRangeModal({
+  open,
+  onClose,
+  lang,
+  L,
+  month,
+  setMonth,
+  checkIn,
+  checkOut,
+  activeField,
+  setActiveField,
+  dayInfo,
+  pickDate,
+}) {
+  const grid = useMemo(() => gridCells(month), [month]);
+  const today = useMemo(() => ymd(new Date()), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  const hint = activeField === "checkin" ? L.pickerHintCheckin : L.pickerHintCheckout;
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black/40 flex items-end sm:items-center justify-center">
+      <div className="w-full sm:max-w-lg bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
+        {/* top bar */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <div className="text-xs text-gray-500 font-semibold">{L.pickerTitle}</div>
+            <div className="text-sm font-semibold text-zinc-900">{hint}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* selected chips */}
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveField("checkin")}
+              className={[
+                "rounded-2xl border p-3 text-left transition-all",
+                activeField === "checkin" ? "border-gray-900" : "border-gray-200",
+              ].join(" ")}
+            >
+              <div className="text-xs font-semibold text-gray-500">{L.checkIn}</div>
+              <div className="mt-1 font-semibold text-zinc-900">{checkIn || "—"}</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!checkIn) setActiveField("checkin");
+                else setActiveField("checkout");
+              }}
+              className={[
+                "rounded-2xl border p-3 text-left transition-all",
+                activeField === "checkout" ? "border-gray-900" : "border-gray-200",
+                !checkIn ? "opacity-60" : "",
+              ].join(" ")}
+            >
+              <div className="text-xs font-semibold text-gray-500">{L.checkOut}</div>
+              <div className="mt-1 font-semibold text-zinc-900">{checkOut || "—"}</div>
+            </button>
+          </div>
+        </div>
+
+        {/* month nav */}
+        <div className="flex items-center justify-between px-5 py-4">
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            onClick={() => setMonth((m) => addMonths(m, -1))}
+            aria-label="Prev month"
+          >
+            <ChevronLeft className="w-5 h-5 text-gray-700" />
+          </button>
+
+          <div className="font-bold text-zinc-900 capitalize">{monthLabel(month, lang)}</div>
+
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center"
+            onClick={() => setMonth((m) => addMonths(m, 1))}
+            aria-label="Next month"
+          >
+            <ChevronRight className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        {/* weekdays */}
+        <div className="grid grid-cols-7 px-5 pb-2 text-[11px] text-gray-500 font-semibold">
+          {L.weekdays.map((d) => (
+            <div key={d} className="text-center py-1">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* days */}
+        <div className="grid grid-cols-7 px-4 pb-5 gap-y-2">
+          {grid.cells.map((d) => {
+            const dateStr = ymd(d);
+            const inMonth = d.getMonth() === month.getMonth();
+            const info = dayInfo(dateStr);
+            const unavailable = !info.isAvailable;
+
+            const isStart = !!checkIn && dateStr === checkIn;
+            const isEnd = !!checkOut && dateStr === checkOut;
+            const isInRange = !!checkIn && !!checkOut && dateStr > checkIn && dateStr < checkOut;
+            const isToday = dateStr === today;
+
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                disabled={unavailable}
+                onClick={() => pickDate(dateStr)}
+                className={[
+                  "relative overflow-hidden h-11 w-full flex items-center justify-center transition-all",
+                  inMonth ? "" : "opacity-35",
+                  unavailable ? "cursor-not-allowed bg-gray-50" : "hover:bg-gray-50",
+                ].join(" ")}
+              >
+                {/* hatch overlay for unavailable */}
+                {unavailable ? (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 pc-hatch-unavailable opacity-90"
+                  />
+                ) : null}
+
+                {/* range background */}
+                {isInRange ? (
+                  <span className="absolute inset-y-1 left-1 right-1 rounded-full bg-rose-100" />
+                ) : null}
+
+                {/* start/end background */}
+                {isStart || isEnd ? <span className="absolute inset-1 rounded-full bg-rose-500" /> : null}
+
+                <span
+                  className={[
+                    "relative z-10 text-sm font-semibold",
+                    isStart || isEnd ? "text-white" : "text-gray-900",
+                    unavailable ? "text-gray-400" : "",
+                  ].join(" ")}
+                >
+                  {d.getDate()}
+                </span>
+
+                {/* today indicator */}
+                {isToday && !(isStart || isEnd) ? (
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-gray-400" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function BookingWidget({
@@ -242,11 +455,14 @@ export default function BookingWidget({
   const L = useMemo(() => t(lang), [lang]);
   const isMobile = useIsMobile();
 
-  // Calendar state for desktop
+  // Desktop calendar month
   const [month, setMonth] = useState(() => new Date());
   const grid = useMemo(() => gridCells(month), [month]);
 
-  // Pricing/settings + day map (computed by API)
+  // Mobile modal month
+  const [mobileMonth, setMobileMonth] = useState(() => new Date());
+
+  // Pricing/settings + day map (preloaded once)
   const [settings, setSettings] = useState({ basePrice: defaultNightly, currency: "RON" });
   const [daysMap, setDaysMap] = useState(new Map());
 
@@ -269,9 +485,13 @@ export default function BookingWidget({
   const [status, setStatus] = useState({ type: "", message: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  // ✅ Success popup
-  const [successModal, setSuccessModal] = useState(null); // stores booking summary
+  // Success modal
+  const [successModal, setSuccessModal] = useState(null);
   const [successOpen, setSuccessOpen] = useState(false);
+
+  // Mobile picker modal
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activeField, setActiveField] = useState("checkin"); // "checkin" | "checkout"
 
   function dayInfo(dateStr) {
     const d = daysMap.get(dateStr);
@@ -281,37 +501,46 @@ export default function BookingWidget({
     };
   }
 
-  async function loadCalendar(from, to) {
+  async function loadCalendar(from, to, { merge = true } = {}) {
     const res = await fetch(`/api/calendar?from=${from}&to=${to}`, { cache: "no-store" });
-    const data = await res.json();
+    const data = await res.json().catch(() => null);
+    if (!data?.ok) return null;
 
-    if (data.ok) {
-      setSettings(data.settings || { basePrice: defaultNightly, currency: "RON" });
-      const m = new Map();
+    setSettings(data.settings || { basePrice: defaultNightly, currency: "RON" });
+
+    setDaysMap((prev) => {
+      const m = merge ? new Map(prev) : new Map();
       for (const d of data.days || []) m.set(d.date, d);
-      setDaysMap(m);
-      return data;
-    }
-    return null;
+      return m;
+    });
+
+    return data;
   }
 
+  /**
+   * ✅ Preload once on mount:
+   * fetch a large range so we don't refetch on month changes or day picks.
+   */
   useEffect(() => {
-    if (isMobile && mobileMode === "date-inputs") return;
-    const from = ymd(grid.cells[0]);
-    const to = ymd(grid.cells[41]);
-    loadCalendar(from, to);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [month, isMobile, mobileMode]);
+    let cancelled = false;
 
-  useEffect(() => {
-    async function computeAvg() {
-      const from = ymd(new Date());
-      const to = addDays(from, 14);
-      const data = await loadCalendar(from, to);
-      if (!data) return;
+    (async () => {
+      const now = new Date();
 
+      // adjust these as desired (bigger range = bigger payload)
+      const PRELOAD_PAST_MONTHS = 2;
+      const PRELOAD_FUTURE_MONTHS = 18;
+
+      const from = ymd(startOfMonth(addMonths(now, -PRELOAD_PAST_MONTHS)));
+      const to = addDays(ymd(endOfMonth(addMonths(now, PRELOAD_FUTURE_MONTHS))), 1);
+
+      const data = await loadCalendar(from, to, { merge: false });
+      if (cancelled || !data) return;
+
+      // compute avg from loaded data (no extra fetch)
       const map = new Map((data.days || []).map((d) => [d.date, d]));
-      const dates = Array.from({ length: 14 }, (_, i) => addDays(from, i));
+      const f = ymd(new Date());
+      const dates = Array.from({ length: 14 }, (_, i) => addDays(f, i));
       const prices = dates.map((dt) => {
         const day = map.get(dt);
         return typeof day?.price === "number"
@@ -321,8 +550,11 @@ export default function BookingWidget({
 
       const avg = Math.round(prices.reduce((a, b) => a + b, 0) / Math.max(1, prices.length));
       onAverageComputed?.(avg);
-    }
-    computeAvg();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -350,11 +582,6 @@ export default function BookingWidget({
     return { ok: true };
   }
 
-  /**
-   * ✅ Desktop behavior change:
-   * If user has checkIn and clicks a checkOut date but range contains unavailable nights,
-   * then set checkIn to the clicked date and clear checkOut.
-   */
   function pickDateDesktop(dateStr) {
     if (!dayInfo(dateStr).isAvailable) return;
 
@@ -375,7 +602,6 @@ export default function BookingWidget({
 
       const res = validateRange(checkIn, dateStr);
       if (!res.ok) {
-        // ✅ Instead of error, treat the click as a new check-in (desktop only)
         setCheckIn(dateStr);
         setCheckOut("");
         return;
@@ -384,18 +610,57 @@ export default function BookingWidget({
     }
   }
 
-  async function onMobileDateChange(nextCheckIn, nextCheckOut) {
+  function pickDateMobile(dateStr) {
+    if (!dayInfo(dateStr).isAvailable) return;
+
     setStatus({ type: "", message: "" });
 
-    const from = nextCheckIn || ymd(new Date());
-    const to = nextCheckOut || addDays(from, 90);
-    await loadCalendar(from, to);
-
-    if (nextCheckIn && nextCheckOut) {
-      const res = validateRange(nextCheckIn, nextCheckOut);
-      if (!res.ok) setStatus({ type: "error", message: res.message });
-      else setStatus({ type: "success", message: L.available });
+    if (activeField === "checkin") {
+      setCheckIn(dateStr);
+      setCheckOut((prev) => (prev && prev <= dateStr ? "" : prev));
+      setPickerOpen(false);
+      return;
     }
+
+    if (!checkIn) {
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    if (dateStr <= checkIn) {
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    const res = validateRange(checkIn, dateStr);
+    if (!res.ok) {
+      setCheckIn(dateStr);
+      setCheckOut("");
+      setPickerOpen(false);
+      return;
+    }
+
+    setCheckOut(dateStr);
+    setStatus({ type: "success", message: L.available });
+    setPickerOpen(false);
+  }
+
+  function openPicker(field) {
+    const base =
+      field === "checkout"
+        ? checkOut || checkIn || ymd(new Date())
+        : checkIn || ymd(new Date());
+
+    setMobileMonth(new Date(base + "T00:00:00Z"));
+
+    if (field === "checkout" && !checkIn) setActiveField("checkin");
+    else setActiveField(field);
+
+    setPickerOpen(true);
   }
 
   async function submit() {
@@ -405,7 +670,8 @@ export default function BookingWidget({
     const vr = validateRange(checkIn, checkOut);
     if (!vr.ok) return setStatus({ type: "error", message: vr.message });
 
-    if (!name.trim() || !phone.trim()) return setStatus({ type: "error", message: L.fillContact });
+    if (!name.trim() || !phone.trim())
+      return setStatus({ type: "error", message: L.fillContact });
 
     setSubmitting(true);
     const res = await fetch("/api/bookings", {
@@ -419,7 +685,7 @@ export default function BookingWidget({
         pets: { hasPets, count: hasPets ? petsCount : 0 },
         name,
         phone,
-        details: details.trim() || "", // ✅ optional
+        details: details.trim() || "",
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -430,7 +696,6 @@ export default function BookingWidget({
       return;
     }
 
-    // ✅ open success popup with clear confirmation
     setSuccessModal({
       bookingId: data.bookingId,
       name: name.trim(),
@@ -443,12 +708,10 @@ export default function BookingWidget({
       currency: settings.currency || "RON",
     });
     setSuccessOpen(true);
-
-    // Keep a small inline status too (harmless)
     setStatus({ type: "success", message: "" });
 
-    // Refresh availability for chosen window
-    await loadCalendar(checkIn, addDays(checkOut, 1));
+    // Refresh just the impacted range (small fetch, merged)
+    await loadCalendar(checkIn, addDays(checkOut, 1), { merge: true });
   }
 
   const showDesktopCalendar = !(isMobile && mobileMode === "date-inputs");
@@ -563,36 +826,34 @@ export default function BookingWidget({
 
   const DateInputs = (
     <div className="flex flex-col sm:flex-row gap-3">
-      <FieldBox label={L.checkIn} value={checkIn} onClear={() => setCheckIn("")}>
+      <FieldBox
+        label={L.checkIn}
+        value={checkIn}
+        onClear={() => {
+          setCheckIn("");
+          setCheckOut("");
+          setStatus({ type: "", message: "" });
+        }}
+        onClick={isMobile && mobileMode === "date-inputs" ? () => openPicker("checkin") : undefined}
+        disabled={false}
+      >
         {isMobile && mobileMode === "date-inputs" ? (
-          <input
-            type="date"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-rose-200"
-            value={checkIn}
-            onChange={async (e) => {
-              const v = e.target.value;
-              setCheckIn(v);
-              if (checkOut && v && checkOut <= v) setCheckOut("");
-              await onMobileDateChange(v, checkOut);
-            }}
-          />
+          <div className="text-sm text-gray-500">{L.pickDates}</div>
         ) : null}
       </FieldBox>
 
-      <FieldBox label={L.checkOut} value={checkOut} onClear={() => setCheckOut("")}>
+      <FieldBox
+        label={L.checkOut}
+        value={checkOut}
+        onClear={() => {
+          setCheckOut("");
+          setStatus({ type: "", message: "" });
+        }}
+        onClick={isMobile && mobileMode === "date-inputs" ? () => openPicker("checkout") : undefined}
+        disabled={isMobile && mobileMode === "date-inputs" ? !checkIn : false}
+      >
         {isMobile && mobileMode === "date-inputs" ? (
-          <input
-            type="date"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-rose-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-            value={checkOut}
-            min={checkIn || undefined}
-            disabled={!checkIn} // ✅ cannot choose checkout until checkin exists
-            onChange={async (e) => {
-              const v = e.target.value;
-              setCheckOut(v);
-              await onMobileDateChange(checkIn, v);
-            }}
-          />
+          <div className="text-sm text-gray-500">{checkIn ? L.pickDates : L.selectDates}</div>
         ) : null}
       </FieldBox>
     </div>
@@ -648,14 +909,26 @@ export default function BookingWidget({
               onClick={() => pickDateDesktop(dateStr)}
               disabled={unavailable}
               className={[
-                "rounded-2xl border p-2 sm:p-3 text-left transition-all",
+                "relative overflow-hidden rounded-2xl border p-2 sm:p-3 text-left transition-all",
                 inMonth ? "border-gray-200" : "border-gray-100 opacity-50",
-                unavailable ? "bg-gray-50 opacity-40 cursor-not-allowed" : "hover:bg-gray-50",
+                unavailable ? "bg-gray-50 opacity-60 cursor-not-allowed" : "hover:bg-gray-50",
                 selected ? "ring-2 ring-rose-200 bg-rose-50" : "",
               ].join(" ")}
             >
-              <div className="text-sm sm:text-base font-semibold text-zinc-900">{d.getDate()}</div>
-              <div className="text-[11px] text-gray-600 mt-1">{formatRON(info.price)} lei</div>
+              {/* hatch overlay for unavailable */}
+              {unavailable ? (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 pc-hatch-unavailable opacity-90"
+                />
+              ) : null}
+
+              <div className="relative z-10 text-sm sm:text-base font-semibold text-zinc-900">
+                {d.getDate()}
+              </div>
+              <div className="relative z-10 text-[11px] text-gray-600 mt-1">
+                {formatRON(info.price)} lei
+              </div>
             </button>
           );
         })}
@@ -672,7 +945,22 @@ export default function BookingWidget({
           {Controls}
         </div>
 
-        {/* ✅ Success Modal */}
+        <MobileDateRangeModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          lang={lang}
+          L={L}
+          month={mobileMonth}
+          setMonth={setMobileMonth}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          activeField={activeField}
+          setActiveField={setActiveField}
+          dayInfo={dayInfo}
+          pickDate={pickDateMobile}
+        />
+
+        {/* Success Modal */}
         {successOpen && successModal ? (
           <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center px-4">
             <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl relative">
@@ -714,7 +1002,9 @@ export default function BookingWidget({
                 {successModal.details ? (
                   <div className="bg-gray-50 rounded-2xl p-4">
                     <div className="text-xs font-semibold text-gray-600 mb-1">Details</div>
-                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">{successModal.details}</div>
+                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">
+                      {successModal.details}
+                    </div>
                   </div>
                 ) : null}
 
@@ -753,7 +1043,7 @@ export default function BookingWidget({
           </div>
         </div>
 
-        {/* ✅ Success Modal on desktop too */}
+        {/* Success Modal on desktop too */}
         {successOpen && successModal ? (
           <div className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center px-4">
             <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl relative">
@@ -795,7 +1085,9 @@ export default function BookingWidget({
                 {successModal.details ? (
                   <div className="bg-gray-50 rounded-2xl p-4">
                     <div className="text-xs font-semibold text-gray-600 mb-1">Details</div>
-                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">{successModal.details}</div>
+                    <div className="text-sm text-zinc-900 whitespace-pre-wrap">
+                      {successModal.details}
+                    </div>
                   </div>
                 ) : null}
 

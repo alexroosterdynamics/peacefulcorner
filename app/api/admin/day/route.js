@@ -77,6 +77,62 @@ export async function POST(req) {
     const body = await req.json().catch(() => ({}));
     const col = await getCollection();
 
+    // ✅ SET BASE PRICE (new)
+    if (body.setBasePrice !== undefined && body.setBasePrice !== null && body.setBasePrice !== "") {
+      const nextBase = Number(body.setBasePrice);
+      if (Number.isNaN(nextBase) || nextBase <= 0) {
+        return NextResponse.json({ ok: false, error: "Invalid base price" }, { status: 400 });
+      }
+
+      const pricing = await getPricing(col);
+      const overrideMap = new Map((pricing.overrides || []).map((o) => [String(o.date), Number(o.price)]));
+
+      // ✅ Optional clean: remove overrides that equal the new base
+      for (const [date, price] of overrideMap.entries()) {
+        if (Number(price) === nextBase) overrideMap.delete(date);
+      }
+
+      const newOverrides = Array.from(overrideMap.entries()).map(([date, price]) => ({ date, price }));
+
+      await col.updateOne(
+        { _type: "pricing", key: KEY },
+        {
+          $set: {
+            _type: "pricing",
+            key: KEY,
+            basePrice: nextBase,
+            currency: pricing.currency || "RON",
+            overrides: newOverrides,
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
+      return NextResponse.json({ ok: true });
+    }
+
+    // ✅ CLEAR ALL OVERRIDES (new)
+    if (body.clearAllOverrides === true) {
+      const pricing = await getPricing(col);
+      await col.updateOne(
+        { _type: "pricing", key: KEY },
+        {
+          $set: {
+            _type: "pricing",
+            key: KEY,
+            basePrice: Number(pricing.basePrice || 220),
+            currency: pricing.currency || "RON",
+            overrides: [],
+            updatedAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+
+      return NextResponse.json({ ok: true });
+    }
+
     // ✅ Approve pending booking -> becomes approved, delete overlapping pending bookings
     if (body.approveBookingId) {
       const id = String(body.approveBookingId);
